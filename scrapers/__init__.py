@@ -7,6 +7,9 @@ from .remotive import RemotiveScraper
 from .adzuna import AdzunaScraper
 from .jsearch import JSearchScraper
 from .linkedin_guest import LinkedInGuestScraper
+from .arbeitnow import ArbeitnowScraper
+from .themuse import TheMuseScraper
+from .himalayas import HimalayasScraper
 
 SCRAPERS = {
     "indeed": IndeedScraper,
@@ -16,4 +19,7 @@ SCRAPERS = {
     "remotive": RemotiveScraper,
     "adzuna": AdzunaScraper,
     "jsearch": JSearchScraper,
+    "arbeitnow": ArbeitnowScraper,
+    "themuse": TheMuseScraper,
+    "himalayas": HimalayasScraper,
 }

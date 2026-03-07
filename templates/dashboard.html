@@ -33,7 +33,7 @@
 </details>
 {% endif %}
 
-<div style="display:flex;gap:0.5rem;margin:1.5rem 0">
+<div style="display:flex;gap:0.5rem;margin:1.5rem 0;flex-wrap:wrap">
     <button onclick="scrapeJobs()" class="outline">Scrape All Sources</button>
     <button onclick="scrapeJobs(['remotive'])" class="outline secondary">Remotive Only</button>
     <button onclick="scrapeJobs(['adzuna'])" class="outline secondary">Adzuna Only</button>
@@ -85,6 +85,12 @@ export RAPIDAPI_KEY="your_key"</pre>
             <span class="skill-tag">{{ s }}</span>
             {% endfor %}
         </div>
+        {% endif %}
+        {% if job.description %}
+        <div class="desc-preview">{{ job.description[:500] }}{% if job.description|length > 500 %}...{% endif %}</div>
+        {% if job.description|length > 150 %}
+        <button class="see-more-btn" onclick="toggleDescription(this)">See more</button>
+        {% endif %}
         {% endif %}
     </div>
     {% endfor %}

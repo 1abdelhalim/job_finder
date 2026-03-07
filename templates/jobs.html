@@ -18,6 +18,15 @@
         </select>
     </div>
     <div>
+        <label for="country">Country</label>
+        <select name="country" id="country">
+            <option value="">All</option>
+            {% for c in countries %}
+            <option value="{{ c }}" {% if country_filter == c %}selected{% endif %}>{{ c }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div>
         <label for="min_score">Min Score</label>
         <select name="min_score" id="min_score">
             <option value="0" {% if min_score == 0 %}selected{% endif %}>Any</option>
@@ -76,7 +85,10 @@
         </div>
         {% endif %}
         {% if job.description %}
-        <div class="desc-preview">{{ job.description[:250] }}{% if job.description|length > 250 %}...{% endif %}</div>
+        <div class="desc-preview">{{ job.description[:500] }}{% if job.description|length > 500 %}...{% endif %}</div>
+        {% if job.description|length > 150 %}
+        <button class="see-more-btn" onclick="toggleDescription(this)">See more</button>
+        {% endif %}
         {% endif %}
     </div>
     {% endfor %}
@@ -85,11 +97,11 @@
 {% if total_pages > 1 %}
 <div class="pagination">
     {% if page > 1 %}
-    <a href="?page={{ page - 1 }}&board={{ board_filter }}&min_score={{ min_score }}&q={{ search }}&sort={{ sort }}" role="button" class="outline">&laquo; Prev</a>
+    <a href="?page={{ page - 1 }}&board={{ board_filter }}&country={{ country_filter }}&min_score={{ min_score }}&q={{ search }}&sort={{ sort }}" role="button" class="outline">&laquo; Prev</a>
     {% endif %}
     <span style="padding:0.5rem">Page {{ page }} / {{ total_pages }}</span>
     {% if page < total_pages %}
-    <a href="?page={{ page + 1 }}&board={{ board_filter }}&min_score={{ min_score }}&q={{ search }}&sort={{ sort }}" role="button" class="outline">Next &raquo;</a>
+    <a href="?page={{ page + 1 }}&board={{ board_filter }}&country={{ country_filter }}&min_score={{ min_score }}&q={{ search }}&sort={{ sort }}" role="button" class="outline">Next &raquo;</a>
     {% endif %}
 </div>
 {% endif %}

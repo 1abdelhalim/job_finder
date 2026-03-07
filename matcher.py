@@ -5,8 +5,11 @@ import math
 import logging
 from datetime import datetime, timedelta
 from collections import Counter
+from pathlib import Path
 
 from models import Job
+
+LIFE_STORY_PATH = Path(__file__).parent.parent / "A_Customised_CurVe_CV__1_" / "life-story.md"
 
 logger = logging.getLogger(__name__)
 
@@ -71,6 +74,53 @@ def cosine_sim(vec_a: dict[str, float], vec_b: dict[str, float]) -> float:
     return dot / (mag_a * mag_b)
 
 
+def load_life_story() -> str:
+    """Load life-story.md if available, return empty string otherwise."""
+    if LIFE_STORY_PATH.exists():
+        try:
+            return LIFE_STORY_PATH.read_text(encoding="utf-8")
+        except Exception:
+            return ""
+    return ""
+
+
+def extract_life_story_signals(text: str) -> dict:
+    """Extract extra matching signals from the life-story markdown."""
+    if not text:
+        return {"technologies": set(), "domains": set(), "companies": set(), "full_tokens": []}
+
+    # Extract technology keywords from "Technologies:" lines and code blocks
+    tech_pattern = re.compile(r"(?:Technologies(?: used)?[:\s]*|Technologies:)(.*?)(?:\n|$)", re.IGNORECASE)
+    techs = set()
+    for m in tech_pattern.finditer(text):
+        for t in re.split(r"[,;|.]", m.group(1)):
+            t = t.strip().lower()
+            if t and len(t) > 1:
+                techs.add(t)
+
+    # Extract domain-specific phrases from section headers and bold text
+    domains = set()
+    for m in re.finditer(r"\*\*(.*?)\*\*", text):
+        phrase = m.group(1).strip().lower()
+        if len(phrase) > 3 and len(phrase) < 60:
+            domains.add(phrase)
+
+    # Extract company/institution names from work experience headers
+    companies = set()
+    for m in re.finditer(r"###\s+.*?—\s+(.*?)(?:,|\n)", text):
+        companies.add(m.group(1).strip().lower())
+
+    # Tokenize the entire life story for broader matching
+    full_tokens = tokenize(text)
+
+    return {
+        "technologies": techs,
+        "domains": domains,
+        "companies": companies,
+        "full_tokens": full_tokens,
+    }
+
+
 class JobMatcher:
     """Score and rank jobs against a user profile."""
 
@@ -87,10 +137,11 @@ class JobMatcher:
         """
         self.profile = profile
         self.weights = profile.get("weights", {
-            "skills": 0.40,
-            "title": 0.30,
-            "keywords": 0.20,
+            "skills": 0.35,
+            "title": 0.25,
+            "keywords": 0.15,
             "location": 0.10,
+            "experience": 0.15,
         })
 
         # Pre-tokenize profile components
@@ -99,6 +150,14 @@ class JobMatcher:
         self._title_tokens = tokenize(" ".join(profile.get("titles", [])))
         self._keyword_tokens = tokenize(" ".join(profile.get("keywords", [])))
         self._locations = [loc.lower() for loc in profile.get("preferred_locations", [])]
+
+        # Load life-story for deeper matching
+        life_story_text = load_life_story()
+        self._life_story = extract_life_story_signals(life_story_text)
+        self._life_story_tf = tf(self._life_story["full_tokens"]) if self._life_story["full_tokens"] else {}
+        # Merge life-story technologies into skills set
+        for tech in self._life_story["technologies"]:
+            self._skills_set.update(tokenize(tech))
 
     def score(self, job: Job) -> tuple[float, dict]:
         """
@@ -140,7 +199,16 @@ class JobMatcher:
             if self.profile.get("remote_preferred") and "remote" in job_loc:
                 location_score = 1.0
 
-        # 5. Recency boost — newer jobs get up to 0.10 bonus
+        # 5. Experience match — life-story deep matching
+        experience_score = 0.0
+        if self._life_story_tf:
+            experience_score = cosine_sim(job_tf, self._life_story_tf)
+            # Boost if job mentions domains from life-story
+            for domain in self._life_story["domains"]:
+                if domain in job_text:
+                    experience_score = min(1.0, experience_score + 0.1)
+
+        # 6. Recency boost — newer jobs get up to 0.10 bonus
         recency_score = self._recency_score(job)
 
         # Weighted sum
@@ -150,6 +218,7 @@ class JobMatcher:
             + w["title"] * title_score
             + w["keywords"] * keyword_score
             + w["location"] * location_score
+            + w.get("experience", 0.15) * experience_score
             + 0.10 * recency_score
         )
         # Normalize back (weights now sum to ~1.1 with recency)
@@ -161,6 +230,7 @@ class JobMatcher:
             "title_score": round(title_score, 3),
             "keyword_score": round(keyword_score, 3),
             "location_score": round(location_score, 3),
+            "experience_score": round(experience_score, 3),
             "recency_score": round(recency_score, 3),
             "weighted_total": round(total, 3),
         }
@@ -197,7 +267,7 @@ class JobMatcher:
             job.match_details = details
 
         # Sort by score first, then by date (newer first) as tiebreaker
-        ranked = sorted(ai_jobs, key=lambda j: (j.match_score, j.date_posted or ""), reverse=True)
+        ranked = sorted(ai_jobs, key=lambda j: (j.match_score, str(j.date_posted or "")), reverse=True)
         if min_score > 0:
             ranked = [j for j in ranked if j.match_score >= min_score]
 

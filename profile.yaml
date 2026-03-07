@@ -125,6 +125,9 @@ search:
     - adzuna
     - linkedin
     - jsearch
+    - arbeitnow
+    - themuse
+    - himalayas
 
 # --- Location Preferences ---
 preferred_locations:
@@ -153,9 +156,10 @@ preferred_locations:
 
 remote_preferred: true
 
-# --- Scoring Weights (must sum to ~1.0) ---
+# --- Scoring Weights (must sum to ~1.0, recency adds +0.10 on top) ---
 weights:
-  skills: 0.40
-  title: 0.30
-  keywords: 0.20
+  skills: 0.35
+  title: 0.25
+  keywords: 0.15
   location: 0.10
+  experience: 0.15

@@ -24,34 +24,52 @@ class RemotiveScraper:
 
     def scrape(self, query: SearchQuery, max_results: int = 50) -> list[Job]:
         jobs = []
+        seen_urls: set[str] = set()
 
-        params = {
-            "search": query.keywords,
-            "limit": max_results,
-        }
+        # Remotive has a small index — try the full query first, then
+        # fall back to individual broader keywords so we don't miss results.
+        search_terms = [query.keywords]
+        for word in query.keywords.lower().split():
+            if len(word) >= 4 and word not in {"with", "that", "from", "this", "senior", "junior"}:
+                search_terms.append(word)
 
-        try:
-            resp = requests.get(API_URL, params=params, timeout=15)
-            resp.raise_for_status()
-            data = resp.json()
-        except Exception as e:
-            logger.error(f"Remotive API error: {e}")
-            return []
+        for term in search_terms:
+            if len(jobs) >= max_results:
+                break
 
-        for item in data.get("jobs", [])[:max_results]:
-            job = Job(
-                title=item.get("title", ""),
-                company=item.get("company_name", "Unknown"),
-                location=item.get("candidate_required_location", "Remote"),
-                url=item.get("url", ""),
-                board=JobBoard.REMOTIVE,
-                description=_strip_html(item.get("description", "")),
-                salary=item.get("salary", ""),
-                date_posted=item.get("publication_date", ""),
-                job_type=item.get("job_type", ""),
-            )
-            if job.url and job.title:
-                jobs.append(job)
+            params = {
+                "search": term,
+                "limit": max_results,
+            }
+
+            try:
+                resp = requests.get(API_URL, params=params, timeout=15)
+                resp.raise_for_status()
+                data = resp.json()
+            except Exception as e:
+                logger.error(f"Remotive API error: {e}")
+                continue
+
+            for item in data.get("jobs", []):
+                if len(jobs) >= max_results:
+                    break
+                url = item.get("url", "")
+                if not url or url in seen_urls:
+                    continue
+                seen_urls.add(url)
+                job = Job(
+                    title=item.get("title", ""),
+                    company=item.get("company_name", "Unknown"),
+                    location=item.get("candidate_required_location", "Remote"),
+                    url=url,
+                    board=JobBoard.REMOTIVE,
+                    description=_strip_html(item.get("description", "")),
+                    salary=item.get("salary", ""),
+                    date_posted=item.get("publication_date", ""),
+                    job_type=item.get("job_type", ""),
+                )
+                if job.title:
+                    jobs.append(job)
 
         logger.info(f"  Remotive: {len(jobs)} jobs found")
         return jobs

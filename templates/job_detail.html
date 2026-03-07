@@ -9,7 +9,7 @@
     </ul>
 </nav>
 
-<article>
+<article style="background:#fff;border:1px solid #e0e0e0">
     <header>
         <div style="display:flex;justify-content:space-between;align-items:start;flex-wrap:wrap;gap:0.5rem">
             <div>
@@ -40,22 +40,26 @@
     {% if job.match_details %}
     <details open>
         <summary>Match Analysis</summary>
-        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(150px, 1fr));gap:0.5rem;margin-top:0.5rem">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:0.5rem;margin-top:0.5rem">
             <div class="stat-card">
                 <div class="value" style="font-size:1.3rem">{{ "%.0f"|format((job.match_details.skills_score or 0) * 100) }}%</div>
-                <div class="label">Skills Match</div>
+                <div class="label">Skills</div>
             </div>
             <div class="stat-card">
                 <div class="value" style="font-size:1.3rem">{{ "%.0f"|format((job.match_details.title_score or 0) * 100) }}%</div>
-                <div class="label">Title Match</div>
+                <div class="label">Title</div>
             </div>
             <div class="stat-card">
                 <div class="value" style="font-size:1.3rem">{{ "%.0f"|format((job.match_details.keyword_score or 0) * 100) }}%</div>
-                <div class="label">Keyword Match</div>
+                <div class="label">Keywords</div>
+            </div>
+            <div class="stat-card">
+                <div class="value" style="font-size:1.3rem">{{ "%.0f"|format((job.match_details.experience_score or 0) * 100) }}%</div>
+                <div class="label">Experience</div>
             </div>
             <div class="stat-card">
                 <div class="value" style="font-size:1.3rem">{{ "%.0f"|format((job.match_details.location_score or 0) * 100) }}%</div>
-                <div class="label">Location Match</div>
+                <div class="label">Location</div>
             </div>
         </div>
         {% if job.match_details.skills_matched %}

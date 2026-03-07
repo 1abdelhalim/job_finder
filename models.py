@@ -13,6 +13,9 @@ class JobBoard(Enum):
     REMOTIVE = "remotive"
     ADZUNA = "adzuna"
     JSEARCH = "jsearch"
+    ARBEITNOW = "arbeitnow"
+    THEMUSE = "themuse"
+    HIMALAYAS = "himalayas"
 
 
 @dataclass

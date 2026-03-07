@@ -38,11 +38,22 @@ COUNTRY_MAP = {
     "pl": "pl",
     "sweden": "se",
     "se": "se",
+    "uae": "ae",
+    "united arab emirates": "ae",
+    "ae": "ae",
+    "saudi arabia": "sa",
+    "sa": "sa",
+    "qatar": "qa",
+    "qa": "qa",
 }
 
 
 class AdzunaScraper:
     """Fetch jobs from the Adzuna API (free tier)."""
+
+    # Track (country, keywords) combos already queried across scraper instances
+    # to avoid redundant API calls when "Europe" overlaps with individual countries.
+    _queried_combos: set[tuple[str, str]] = set()
 
     def __init__(self):
         self.app_id = os.environ.get("ADZUNA_APP_ID", "")
@@ -59,9 +70,17 @@ class AdzunaScraper:
             return []
 
         jobs = []
+        seen_ids: set[str] = set()  # Adzuna job IDs to deduplicate across countries
         countries = self._resolve_countries(query.location)
 
         for country in countries:
+            # Skip if this country+keywords combo was already queried
+            combo = (country, query.keywords.lower().strip())
+            if combo in AdzunaScraper._queried_combos:
+                logger.debug(f"  Skipping Adzuna {country} for '{query.keywords}' (already queried)")
+                continue
+            AdzunaScraper._queried_combos.add(combo)
+
             page = 1
             while len(jobs) < max_results:
                 params = {
@@ -90,9 +109,18 @@ class AdzunaScraper:
                     break
 
                 for item in results:
+                    # Deduplicate by Adzuna job ID or title+company fingerprint
+                    adzuna_id = str(item.get("id", ""))
+                    title = item.get("title", "")
+                    company = item.get("company", {}).get("display_name", "Unknown")
+                    fingerprint = adzuna_id or f"{title.lower().strip()}|{company.lower().strip()}"
+                    if fingerprint in seen_ids:
+                        continue
+                    seen_ids.add(fingerprint)
+
                     job = Job(
-                        title=item.get("title", ""),
-                        company=item.get("company", {}).get("display_name", "Unknown"),
+                        title=title,
+                        company=company,
                         location=item.get("location", {}).get("display_name", country.upper()),
                         url=item.get("redirect_url", ""),
                         board=JobBoard.ADZUNA,

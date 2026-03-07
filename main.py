@@ -15,9 +15,13 @@ import argparse
 import json
 import logging
 import sys
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 import yaml
+from dotenv import load_dotenv
+
+load_dotenv(Path(__file__).parent / ".env")
 
 from models import Job, JobBoard, SearchQuery
 from scrapers import SCRAPERS
@@ -25,6 +29,9 @@ from matcher import JobMatcher
 from storage import save_jobs, update_scores, get_top_jobs, get_db
 
 CONFIG_PATH = Path(__file__).parent / "profile.yaml"
+
+# Scrapers that ignore the location parameter — only need to run once per keyword
+LOCATION_AGNOSTIC_BOARDS = {"remotive", "arbeitnow", "himalayas"}
 
 ALL_BOARDS = list(SCRAPERS.keys())
 
@@ -69,6 +76,20 @@ def build_queries(profile: dict) -> list[SearchQuery]:
     return queries
 
 
+def _scrape_one(board_name: str, query: SearchQuery, max_results: int,
+                fetch_details: bool) -> list[Job]:
+    """Scrape a single board+query (runs inside a thread)."""
+    scraper_cls = SCRAPERS.get(board_name)
+    if not scraper_cls:
+        return []
+    scraper = scraper_cls()
+    jobs = scraper.scrape(query, max_results=max_results)
+    if fetch_details:
+        for job in jobs[:10]:
+            scraper.get_job_details(job)
+    return jobs
+
+
 def cmd_scrape(args):
     """Scrape jobs from all configured boards."""
     profile = load_profile()
@@ -82,35 +103,54 @@ def cmd_scrape(args):
     matcher = JobMatcher(profile)
     all_jobs: list[Job] = []
 
-    for query in queries:
-        logger.info(f"Searching: '{query.keywords}' in '{query.location or 'anywhere'}'")
+    # Track (board, keyword) combos already submitted so location-agnostic
+    # boards don't get called repeatedly for every location.
+    seen_combos: set[tuple[str, str]] = set()
+    futures = []
 
-        for board in query.boards:
-            scraper_cls = SCRAPERS.get(board.value)
-            if not scraper_cls:
-                logger.warning(f"No scraper for {board.value}")
-                continue
+    max_workers = min(8, len(queries) * 3)  # reasonable thread count
+    with ThreadPoolExecutor(max_workers=max_workers) as pool:
+        for query in queries:
+            logger.info(f"Searching: '{query.keywords}' in '{query.location or 'anywhere'}'")
 
-            logger.info(f"  Scraping {board.value}...")
-            scraper = scraper_cls()
+            for board in query.boards:
+                board_name = board.value
+
+                # Skip duplicate calls for location-agnostic boards
+                if board_name in LOCATION_AGNOSTIC_BOARDS:
+                    combo = (board_name, query.keywords)
+                    if combo in seen_combos:
+                        logger.debug(f"  Skipping {board_name} (already queried for '{query.keywords}')")
+                        continue
+                    seen_combos.add(combo)
+
+                logger.info(f"  Queuing {board_name}...")
+                fut = pool.submit(
+                    _scrape_one, board_name, query, args.max, args.fetch_details
+                )
+                fut.board_name = board_name  # type: ignore[attr-defined]
+                fut.query = query  # type: ignore[attr-defined]
+                futures.append(fut)
+
+        for fut in as_completed(futures):
+            board_name = fut.board_name  # type: ignore[attr-defined]
+            query = fut.query  # type: ignore[attr-defined]
             try:
-                jobs = scraper.scrape(query, max_results=args.max)
-                logger.info(f"    Found {len(jobs)} jobs")
-
-                if args.fetch_details:
-                    for job in jobs[:10]:
-                        scraper.get_job_details(job)
-
+                jobs = fut.result()
+                logger.info(f"  {board_name} ({query.keywords[:30]}): {len(jobs)} jobs")
                 all_jobs.extend(jobs)
             except Exception as e:
-                logger.error(f"    Failed: {e}")
+                logger.error(f"  {board_name} failed: {e}")
 
-    # Deduplicate by URL
-    seen = set()
+    # Deduplicate by URL and by title+company fingerprint
+    seen_urls: set[str] = set()
+    seen_fingerprints: set[str] = set()
     unique_jobs = []
     for j in all_jobs:
-        if j.url not in seen:
-            seen.add(j.url)
+        fingerprint = f"{j.title.lower().strip()}|{j.company.lower().strip()}"
+        if j.url not in seen_urls and fingerprint not in seen_fingerprints:
+            seen_urls.add(j.url)
+            seen_fingerprints.add(fingerprint)
             unique_jobs.append(j)
 
     ranked = matcher.rank(unique_jobs)

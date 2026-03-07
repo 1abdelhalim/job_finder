@@ -6,7 +6,10 @@ import threading
 from pathlib import Path
 
 import yaml
+from dotenv import load_dotenv
 from flask import Flask, render_template, request, jsonify, redirect, url_for
+
+load_dotenv(Path(__file__).parent / ".env")
 
 from models import Job, JobBoard, SearchQuery
 from scrapers import SCRAPERS
@@ -65,6 +68,7 @@ def create_app():
         per_page = 25
         offset = (page - 1) * per_page
         board_filter = request.args.get("board", "")
+        country_filter = request.args.get("country", "")
         min_score = float(request.args.get("min_score", 0))
         search = request.args.get("q", "")
         sort = request.args.get("sort", "score")  # score, date, company
@@ -75,6 +79,9 @@ def create_app():
         if board_filter:
             where.append("board = ?")
             params.append(board_filter)
+        if country_filter:
+            where.append("location LIKE ?")
+            params.append(f"%{country_filter}%")
         if min_score > 0:
             where.append("match_score >= ?")
             params.append(min_score)
@@ -97,7 +104,22 @@ def create_app():
             f"SELECT * FROM jobs WHERE {where_sql} ORDER BY {order_sql} LIMIT ? OFFSET ?",
             params + [per_page, offset]
         ).fetchall()
+
+        # Get distinct countries from locations for the filter dropdown
+        country_rows = conn.execute(
+            "SELECT DISTINCT location FROM jobs WHERE hidden = 0 AND location != '' ORDER BY location"
+        ).fetchall()
         conn.close()
+
+        # Extract country-like values from locations
+        countries = set()
+        for r in country_rows:
+            loc = r["location"]
+            # Take the last part after comma as likely country
+            parts = [p.strip() for p in loc.split(",")]
+            if parts:
+                countries.add(parts[-1])
+        countries = sorted(countries)
 
         jobs = []
         for r in rows:
@@ -109,8 +131,9 @@ def create_app():
 
         return render_template("jobs.html",
             jobs=jobs, page=page, total_pages=total_pages, total=total,
-            board_filter=board_filter, min_score=min_score, search=search, sort=sort,
-            boards=[b.value for b in JobBoard])
+            board_filter=board_filter, country_filter=country_filter,
+            min_score=min_score, search=search, sort=sort,
+            boards=[b.value for b in JobBoard], countries=countries)
 
     @app.route("/job/<path:url>")
     def job_detail(url):
@@ -124,6 +147,14 @@ def create_app():
         job["match_details"] = json.loads(job.get("match_details", "{}"))
         return render_template("job_detail.html", job=job)
 
+    @app.route("/settings")
+    def settings():
+        """Settings page for exclusions."""
+        profile = load_profile()
+        locations = profile.get("preferred_locations", [])
+        all_boards = [b.value for b in JobBoard]
+        return render_template("settings.html", locations=locations, all_boards=all_boards)
+
     @app.route("/api/scrape", methods=["POST"])
     def api_scrape():
         """Trigger a scrape via the API."""
@@ -131,6 +162,8 @@ def create_app():
         boards = data.get("boards", [])
         max_results = data.get("max_results", 30)
         keywords = data.get("keywords", "")
+        excluded_boards = set(data.get("excluded_boards", []))
+        excluded_countries = [c.lower() for c in data.get("excluded_countries", [])]
 
         def run_scrape():
             profile = load_profile()
@@ -162,6 +195,9 @@ def create_app():
 
             for query in queries:
                 for board in query.boards:
+                    # Skip excluded boards
+                    if board.value in excluded_boards:
+                        continue
                     scraper_cls = SCRAPERS.get(board.value)
                     if not scraper_cls:
                         continue
@@ -172,13 +208,21 @@ def create_app():
                     except Exception as e:
                         logger.error(f"Scrape error ({board.value}): {e}")
 
-            # Deduplicate
-            seen = set()
+            # Deduplicate by URL and title+company fingerprint
+            seen_urls = set()
+            seen_fingerprints = set()
             unique = []
             for j in all_jobs:
-                if j.url not in seen:
-                    seen.add(j.url)
+                fp = f"{j.title.lower().strip()}|{j.company.lower().strip()}"
+                if j.url not in seen_urls and fp not in seen_fingerprints:
+                    seen_urls.add(j.url)
+                    seen_fingerprints.add(fp)
                     unique.append(j)
+
+            # Filter out jobs from excluded countries
+            if excluded_countries:
+                unique = [j for j in unique
+                          if not any(c in j.location.lower() for c in excluded_countries)]
 
             ranked = matcher.rank(unique)
             save_jobs(ranked)
@@ -221,6 +265,25 @@ def create_app():
         if url:
             mark_hidden(url)
         return jsonify({"status": "ok"})
+
+    @app.route("/api/hide_by_countries", methods=["POST"])
+    def api_hide_by_countries():
+        """Hide all jobs from specified countries."""
+        data = request.json or {}
+        countries = [c.lower() for c in data.get("countries", [])]
+        if not countries:
+            return jsonify({"status": "ok", "hidden": 0})
+        conn = get_db()
+        hidden_count = 0
+        for country in countries:
+            result = conn.execute(
+                "UPDATE jobs SET hidden = 1 WHERE hidden = 0 AND LOWER(location) LIKE ?",
+                (f"%{country}%",)
+            )
+            hidden_count += result.rowcount
+        conn.commit()
+        conn.close()
+        return jsonify({"status": "ok", "hidden": hidden_count})
 
     @app.route("/api/stats")
     def api_stats():

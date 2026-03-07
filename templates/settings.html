@@ -1,0 +1,199 @@
+{% extends "base.html" %}
+{% block title %}AI Apply — Settings{% endblock %}
+{% block content %}
+<h2>Settings</h2>
+
+<div class="settings-panel">
+    <h3>Excluded Countries</h3>
+    <p style="font-size:0.85rem;color:#6b7280">Jobs from excluded countries will be hidden from results. Click a country to toggle it.</p>
+    <div id="country-chips" style="margin-top:0.5rem">
+        {% for loc in locations %}
+        <span class="chip active" data-value="{{ loc }}" onclick="toggleCountry(this)">
+            {{ loc }}
+            <button onclick="event.stopPropagation(); excludeCountry(this.parentElement)">&times;</button>
+        </span>
+        {% endfor %}
+    </div>
+    <div style="margin-top:0.8rem;display:flex;gap:0.5rem;align-items:end">
+        <div>
+            <label for="new-country">Add country to exclude</label>
+            <input type="text" id="new-country" placeholder="e.g. India" style="margin-bottom:0">
+        </div>
+        <button onclick="addExcludedCountry()" class="outline" style="margin-bottom:0">Exclude</button>
+    </div>
+    <div id="excluded-countries-list" style="margin-top:0.5rem"></div>
+</div>
+
+<div class="settings-panel">
+    <h3>Job Board Sources</h3>
+    <p style="font-size:0.85rem;color:#6b7280">Toggle which job boards to include when scraping. Disabled boards won't be queried.</p>
+    <div id="board-chips" style="margin-top:0.5rem">
+        {% for b in all_boards %}
+        <span class="chip active" data-value="{{ b }}" onclick="toggleBoard(this)">
+            <span class="board-badge board-{{ b }}" style="margin:0">{{ b }}</span>
+            <button onclick="event.stopPropagation(); excludeBoard(this.parentElement)">&times;</button>
+        </span>
+        {% endfor %}
+    </div>
+</div>
+
+<div class="settings-panel">
+    <h3>Actions</h3>
+    <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
+        <button onclick="clearExclusions()" class="outline secondary">Reset All Exclusions</button>
+        <button onclick="rescoreJobs()" class="outline">Re-score All Jobs</button>
+        <button onclick="hideExcludedCountryJobs()" class="outline contrast">Hide Jobs from Excluded Countries</button>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Load saved exclusions from localStorage
+    function getExcludedCountries() {
+        return JSON.parse(localStorage.getItem('excludedCountries') || '[]');
+    }
+    function getExcludedBoards() {
+        return JSON.parse(localStorage.getItem('excludedBoards') || '[]');
+    }
+    function saveExcludedCountries(list) {
+        localStorage.setItem('excludedCountries', JSON.stringify(list));
+    }
+    function saveExcludedBoards(list) {
+        localStorage.setItem('excludedBoards', JSON.stringify(list));
+    }
+
+    function toggleCountry(chip) {
+        const val = chip.dataset.value;
+        let excluded = getExcludedCountries();
+        if (excluded.includes(val)) {
+            excluded = excluded.filter(c => c !== val);
+            chip.classList.remove('excluded');
+            chip.classList.add('active');
+        } else {
+            excluded.push(val);
+            chip.classList.add('excluded');
+            chip.classList.remove('active');
+        }
+        saveExcludedCountries(excluded);
+        updateExcludedDisplay();
+    }
+
+    function excludeCountry(chip) {
+        const val = chip.dataset.value;
+        let excluded = getExcludedCountries();
+        if (!excluded.includes(val)) {
+            excluded.push(val);
+            saveExcludedCountries(excluded);
+        }
+        chip.classList.add('excluded');
+        chip.classList.remove('active');
+        updateExcludedDisplay();
+    }
+
+    function addExcludedCountry() {
+        const input = document.getElementById('new-country');
+        const val = input.value.trim();
+        if (!val) return;
+        let excluded = getExcludedCountries();
+        if (!excluded.includes(val)) {
+            excluded.push(val);
+            saveExcludedCountries(excluded);
+            // Add chip if not already in list
+            const container = document.getElementById('country-chips');
+            const existing = container.querySelector(`[data-value="${val}"]`);
+            if (!existing) {
+                const chip = document.createElement('span');
+                chip.className = 'chip excluded';
+                chip.dataset.value = val;
+                chip.onclick = function() { toggleCountry(this); };
+                chip.innerHTML = `${val} <button onclick="event.stopPropagation(); excludeCountry(this.parentElement)">&times;</button>`;
+                container.appendChild(chip);
+            }
+        }
+        input.value = '';
+        updateExcludedDisplay();
+    }
+
+    function toggleBoard(chip) {
+        const val = chip.dataset.value;
+        let excluded = getExcludedBoards();
+        if (excluded.includes(val)) {
+            excluded = excluded.filter(b => b !== val);
+            chip.classList.remove('excluded');
+            chip.classList.add('active');
+        } else {
+            excluded.push(val);
+            chip.classList.add('excluded');
+            chip.classList.remove('active');
+        }
+        saveExcludedBoards(excluded);
+    }
+
+    function excludeBoard(chip) {
+        const val = chip.dataset.value;
+        let excluded = getExcludedBoards();
+        if (!excluded.includes(val)) {
+            excluded.push(val);
+            saveExcludedBoards(excluded);
+        }
+        chip.classList.add('excluded');
+        chip.classList.remove('active');
+    }
+
+    function clearExclusions() {
+        localStorage.removeItem('excludedCountries');
+        localStorage.removeItem('excludedBoards');
+        document.querySelectorAll('.chip.excluded').forEach(c => {
+            c.classList.remove('excluded');
+            c.classList.add('active');
+        });
+        updateExcludedDisplay();
+    }
+
+    async function hideExcludedCountryJobs() {
+        const excluded = getExcludedCountries();
+        if (excluded.length === 0) {
+            alert('No countries excluded. Toggle countries above first.');
+            return;
+        }
+        const resp = await fetch('/api/hide_by_countries', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({countries: excluded}),
+        });
+        const data = await resp.json();
+        alert(`Hidden ${data.hidden} jobs from excluded countries.`);
+    }
+
+    function updateExcludedDisplay() {
+        const excluded = getExcludedCountries();
+        const el = document.getElementById('excluded-countries-list');
+        if (excluded.length > 0) {
+            el.innerHTML = '<small style="color:#991b1b">Currently excluded: ' + excluded.join(', ') + '</small>';
+        } else {
+            el.innerHTML = '';
+        }
+    }
+
+    // On page load, apply saved state to chips
+    document.addEventListener('DOMContentLoaded', () => {
+        const excludedCountries = getExcludedCountries();
+        document.querySelectorAll('#country-chips .chip').forEach(chip => {
+            if (excludedCountries.includes(chip.dataset.value)) {
+                chip.classList.add('excluded');
+                chip.classList.remove('active');
+            }
+        });
+        const excludedBoards = getExcludedBoards();
+        document.querySelectorAll('#board-chips .chip').forEach(chip => {
+            if (excludedBoards.includes(chip.dataset.value)) {
+                chip.classList.add('excluded');
+                chip.classList.remove('active');
+            }
+        });
+        updateExcludedDisplay();
+    });
+</script>
+{% endblock %}

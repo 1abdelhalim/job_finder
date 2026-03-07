@@ -35,10 +35,20 @@ def get_db(db_path: Path = DB_PATH) -> sqlite3.Connection:
 
 
 def save_jobs(jobs: list[Job], db_path: Path = DB_PATH) -> int:
-    """Save jobs to SQLite. Returns number of new jobs inserted."""
+    """Save jobs to SQLite. Returns number of new jobs inserted.
+    Deduplicates by both URL and title+company fingerprint."""
     conn = get_db(db_path)
+    # Load existing fingerprints to skip title+company duplicates
+    existing = conn.execute(
+        "SELECT LOWER(TRIM(title)) || '|' || LOWER(TRIM(company)) FROM jobs"
+    ).fetchall()
+    seen_fingerprints = {row[0] for row in existing}
+
     inserted = 0
     for job in jobs:
+        fingerprint = f"{job.title.lower().strip()}|{job.company.lower().strip()}"
+        if fingerprint in seen_fingerprints:
+            continue
         try:
             conn.execute(
                 """INSERT OR IGNORE INTO jobs
@@ -52,8 +62,8 @@ def save_jobs(jobs: list[Job], db_path: Path = DB_PATH) -> int:
                     job.match_score, json.dumps(job.match_details),
                 ),
             )
-            if conn.total_changes:
-                inserted += 1
+            seen_fingerprints.add(fingerprint)
+            inserted += 1
         except sqlite3.IntegrityError:
             pass
     conn.commit()
