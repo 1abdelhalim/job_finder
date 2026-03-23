@@ -121,13 +121,46 @@ search:
   max_age_days: 14
 
   boards:
-    - remotive
-    - adzuna
+    - indeed        # via python-jobspy (fixed JS rendering)
+    - glassdoor     # via python-jobspy (fixed JS rendering)
+    - google        # Google Jobs via python-jobspy (no key needed)
     - linkedin
-    - jsearch
+    - adzuna
+    - jsearch       # Google Jobs aggregator via RapidAPI (needs RAPIDAPI_KEY)
+    - remotive
     - arbeitnow
     - themuse
     - himalayas
+    - greenhouse    # Direct company career pages (Greenhouse ATS)
+    - lever         # Direct company career pages (Lever ATS)
+
+# --- Target Company Career Pages ---
+# Greenhouse ATS: free public API at boards-api.greenhouse.io/v1/boards/{slug}/jobs
+# Find a company's slug: go to their careers page → usually jobs.lever.co/{slug} or boards.greenhouse.io/{slug}
+companies:
+  greenhouse:
+    - { name: "Wayve",               slug: "wayve" }
+    - { name: "Zoox",                slug: "zoox" }
+    - { name: "Aurora Innovation",   slug: "aurora" }
+    - { name: "Luminar Technologies",slug: "luminar-technologies" }
+    - { name: "Mobileye",            slug: "mobileye" }
+    - { name: "Nuro",                slug: "nuro" }
+    - { name: "Motional",            slug: "motional" }
+    - { name: "Woven by Toyota",     slug: "woven-by-toyota" }
+    - { name: "Applied Intuition",   slug: "applied-intuition" }
+    - { name: "Gatik",               slug: "gatik" }
+    - { name: "Kodiak Robotics",     slug: "kodiak-robotics" }
+    - { name: "Osmo",                slug: "osmobiosciences" }
+    - { name: "Covariant",           slug: "covariant" }
+    - { name: "Robust Intelligence", slug: "robustintelligence" }
+    - { name: "Hugging Face",        slug: "huggingface" }
+    - { name: "Samsara",             slug: "samsara" }
+    - { name: "Striveworks",         slug: "striveworks" }
+
+  lever:
+    # To add a company: go to their careers page — if the URL is jobs.lever.co/{slug}, add it here.
+    # Most major autonomy/robotics companies have moved to Greenhouse or Workday.
+    # Leave empty or add verified slugs only.
 
 # --- Location Preferences ---
 preferred_locations:

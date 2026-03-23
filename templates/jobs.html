@@ -59,8 +59,8 @@
                 {% if job.applied %}<span class="applied-badge">Applied</span>{% endif %}
             </div>
             <div class="btn-group">
-                <a href="/job/{{ job.url }}" class="btn-sm outline" role="button">Details</a>
-                <a href="{{ job.url }}" target="_blank" class="btn-sm outline" role="button">Open</a>
+                <a href="/job?url={{ job.url | urlencode }}" class="btn-sm outline" role="button">Details</a>
+                <button class="btn-sm" style="background:#88AC0B;border-color:#88AC0B;color:#fff" onclick="generateApplication('{{ job.url }}')">Generate</button>
                 <button class="btn-sm outline" onclick="markApplied('{{ job.url }}')">Applied</button>
                 <button class="btn-sm outline secondary" onclick="hideJob('{{ job.url }}')">Hide</button>
             </div>

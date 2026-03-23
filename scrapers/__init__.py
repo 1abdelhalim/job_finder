@@ -10,11 +10,20 @@ from .linkedin_guest import LinkedInGuestScraper
 from .arbeitnow import ArbeitnowScraper
 from .themuse import TheMuseScraper
 from .himalayas import HimalayasScraper
+from .jobspy_wrapper import JobSpyIndeedScraper, JobSpyGlassdoorScraper, JobSpyGoogleScraper
+from .greenhouse import GreenhouseScraper
+from .lever import LeverScraper
 
 SCRAPERS = {
-    "indeed": IndeedScraper,
+    # JobSpy-backed scrapers (handle JS rendering + bot detection)
+    "indeed": JobSpyIndeedScraper,
+    "glassdoor": JobSpyGlassdoorScraper,
+    "google": JobSpyGoogleScraper,
+    # Company ATS scrapers (free public APIs)
+    "greenhouse": GreenhouseScraper,
+    "lever": LeverScraper,
+    # Other boards
     "linkedin": LinkedInGuestScraper,
-    "glassdoor": GlassdoorScraper,
     "stepstone": StepstoneScraper,
     "remotive": RemotiveScraper,
     "adzuna": AdzunaScraper,

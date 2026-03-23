@@ -17,6 +17,9 @@ class JobBoard(Enum):
     ARBEITNOW = "arbeitnow"
     THEMUSE = "themuse"
     HIMALAYAS = "himalayas"
+    GOOGLE = "google"
+    GREENHOUSE = "greenhouse"
+    LEVER = "lever"
 
 
 @dataclass

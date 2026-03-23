@@ -139,9 +139,12 @@ def create_app():
             min_score=min_score, search=search, sort=sort,
             boards=[b.value for b in JobBoard], countries=countries)
 
-    @app.route("/job/<path:url>")
-    def job_detail(url):
+    @app.route("/job")
+    def job_detail():
         """Show single job details."""
+        url = request.args.get("url", "")
+        if not url:
+            return "Missing job URL", 400
         conn = get_db()
         row = conn.execute("SELECT * FROM jobs WHERE url = ?", (url,)).fetchone()
         conn.close()

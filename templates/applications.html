@@ -20,7 +20,7 @@
     <tbody>
         {% for app in applications %}
         <tr>
-            <td><a href="/job/{{ app.job_url }}">{{ app.title or 'N/A' }}</a></td>
+            <td><a href="/job?url={{ app.job_url | urlencode }}">{{ app.title or 'N/A' }}</a></td>
             <td>{{ app.company or 'N/A' }}</td>
             <td>
                 <span class="score-badge {% if app.match_score >= 0.7 %}score-excellent{% elif app.match_score >= 0.4 %}score-good{% else %}score-fair{% endif %}">
