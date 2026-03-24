@@ -20,6 +20,7 @@ class JobBoard(Enum):
     GOOGLE = "google"
     GREENHOUSE = "greenhouse"
     LEVER = "lever"
+    LINKEDIN_POSTS = "linkedin_posts"
 
 
 @dataclass

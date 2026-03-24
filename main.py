@@ -19,8 +19,10 @@ Usage:
 import argparse
 import json
 import logging
+import re
 import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import List
 
@@ -37,7 +39,7 @@ from storage import save_jobs, update_scores, get_top_jobs, get_db
 CONFIG_PATH = Path(__file__).parent / "profile.yaml"
 
 # Scrapers that ignore the location parameter — only need to run once per keyword
-LOCATION_AGNOSTIC_BOARDS = {"remotive", "arbeitnow", "himalayas", "greenhouse", "lever"}
+LOCATION_AGNOSTIC_BOARDS = {"remotive", "arbeitnow", "himalayas", "greenhouse", "lever", "linkedin_posts"}
 
 ALL_BOARDS = list(SCRAPERS.keys())
 
@@ -94,6 +96,41 @@ def _scrape_one(board_name: str, query: SearchQuery, max_results: int,
         for job in jobs[:10]:
             scraper.get_job_details(job)
     return jobs
+
+
+def _filter_old_jobs(jobs: List[Job], max_age_days: int = 180) -> List[Job]:
+    """Drop jobs whose date_posted is older than max_age_days. Jobs with no
+    parseable date are kept (we can't confirm they're old)."""
+    cutoff = datetime.now(timezone.utc).timestamp() - max_age_days * 86400
+    kept, dropped = [], 0
+    for job in jobs:
+        raw = (job.date_posted or "").strip()
+        if not raw:
+            kept.append(job)
+            continue
+        ts = None
+        # Unix ms timestamp (Lever uses this)
+        if raw.isdigit() and len(raw) == 13:
+            ts = int(raw) / 1000
+        else:
+            # Strip microseconds before parsing
+            normalized = re.sub(r"\.\d+", "", raw)
+            for fmt in ("%Y-%m-%dT%H:%M:%S%z", "%Y-%m-%dT%H:%M:%SZ",
+                        "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d",
+                        "%B %d, %Y", "%b %d, %Y"):
+                try:
+                    dt = datetime.strptime(normalized, fmt)
+                    ts = dt.replace(tzinfo=timezone.utc).timestamp()
+                    break
+                except ValueError:
+                    continue
+        if ts is None or ts >= cutoff:
+            kept.append(job)
+        else:
+            dropped += 1
+    if dropped:
+        logger.info(f"  Filtered out {dropped} jobs older than {max_age_days} days")
+    return kept
 
 
 def cmd_scrape(args):
@@ -158,6 +195,8 @@ def cmd_scrape(args):
             seen_urls.add(j.url)
             seen_fingerprints.add(fingerprint)
             unique_jobs.append(j)
+
+    unique_jobs = _filter_old_jobs(unique_jobs, max_age_days=180)
 
     ranked = matcher.rank(unique_jobs)
     n_saved = save_jobs(ranked)

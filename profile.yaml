@@ -131,8 +131,9 @@ search:
     - arbeitnow
     - themuse
     - himalayas
-    - greenhouse    # Direct company career pages (Greenhouse ATS)
-    - lever         # Direct company career pages (Lever ATS)
+    - greenhouse     # Direct company career pages (Greenhouse ATS)
+    - lever          # Direct company career pages (Lever ATS)
+    - linkedin_posts # LinkedIn hiring posts via DuckDuckGo (no API key needed)
 
 # --- Target Company Career Pages ---
 # Greenhouse ATS: free public API at boards-api.greenhouse.io/v1/boards/{slug}/jobs

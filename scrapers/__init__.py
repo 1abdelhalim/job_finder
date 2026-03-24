@@ -13,6 +13,7 @@ from .himalayas import HimalayasScraper
 from .jobspy_wrapper import JobSpyIndeedScraper, JobSpyGlassdoorScraper, JobSpyGoogleScraper
 from .greenhouse import GreenhouseScraper
 from .lever import LeverScraper
+from .linkedin_posts import LinkedInPostsScraper
 
 SCRAPERS = {
     # JobSpy-backed scrapers (handle JS rendering + bot detection)
@@ -22,6 +23,7 @@ SCRAPERS = {
     # Company ATS scrapers (free public APIs)
     "greenhouse": GreenhouseScraper,
     "lever": LeverScraper,
+    "linkedin_posts": LinkedInPostsScraper,
     # Other boards
     "linkedin": LinkedInGuestScraper,
     "stepstone": StepstoneScraper,
