@@ -104,7 +104,7 @@ def _filter_old_jobs(jobs: List[Job], max_age_days: int = 180) -> List[Job]:
     cutoff = datetime.now(timezone.utc).timestamp() - max_age_days * 86400
     kept, dropped = [], 0
     for job in jobs:
-        raw = (job.date_posted or "").strip()
+        raw = str(job.date_posted or "").strip()
         if not raw:
             kept.append(job)
             continue
@@ -138,7 +138,11 @@ def cmd_scrape(args):
     profile = load_profile()
     queries = build_queries(profile)
 
-    if args.boards:
+    if getattr(args, "all_boards", False):
+        override_boards = [JobBoard(b) for b in ALL_BOARDS]
+        for q in queries:
+            q.boards = override_boards
+    elif args.boards:
         override_boards = [JobBoard(b) for b in args.boards]
         for q in queries:
             q.boards = override_boards
@@ -512,6 +516,8 @@ def main():
     # scrape
     p_scrape = subparsers.add_parser("scrape", help="Scrape jobs from boards")
     p_scrape.add_argument("--boards", nargs="+", choices=ALL_BOARDS)
+    p_scrape.add_argument("--all", dest="all_boards", action="store_true",
+                          help="Run every available scraper (overrides --boards and profile)")
     p_scrape.add_argument("--max", type=int, default=50, help="Max results per board per query")
     p_scrape.add_argument("--fetch-details", action="store_true", help="Fetch full descriptions (slower)")
     p_scrape.set_defaults(func=cmd_scrape)

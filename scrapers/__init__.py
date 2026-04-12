@@ -10,11 +10,13 @@ from .linkedin_guest import LinkedInGuestScraper
 from .arbeitnow import ArbeitnowScraper
 from .themuse import TheMuseScraper
 from .himalayas import HimalayasScraper
-from .jobspy_wrapper import JobSpyIndeedScraper, JobSpyGlassdoorScraper, JobSpyGoogleScraper
+from .jobspy_wrapper import JobSpyIndeedScraper, JobSpyGlassdoorScraper, JobSpyGoogleScraper, JobSpyLinkedInScraper
 from .greenhouse import GreenhouseScraper
 from .lever import LeverScraper
 from .linkedin_posts import LinkedInPostsScraper
 from .internet_search import InternetSearchScraper
+from .bayt import BaytScraper
+from .gulftalent import GulfTalentScraper
 
 SCRAPERS = {
     # JobSpy-backed scrapers (handle JS rendering + bot detection)
@@ -27,7 +29,7 @@ SCRAPERS = {
     "linkedin_posts": LinkedInPostsScraper,
     "internet": InternetSearchScraper,
     # Other boards
-    "linkedin": LinkedInGuestScraper,
+    "linkedin": JobSpyLinkedInScraper,
     "stepstone": StepstoneScraper,
     "remotive": RemotiveScraper,
     "adzuna": AdzunaScraper,
@@ -35,4 +37,6 @@ SCRAPERS = {
     "arbeitnow": ArbeitnowScraper,
     "themuse": TheMuseScraper,
     "himalayas": HimalayasScraper,
+    "bayt": BaytScraper,
+    "gulftalent": GulfTalentScraper,
 }

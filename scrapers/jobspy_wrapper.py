@@ -49,18 +49,24 @@ def _country(location: str) -> str:
     return _COUNTRY_MAP.get(location.lower().strip(), "USA")
 
 
+def _clean(value) -> str:
+    """Convert a DataFrame value to string, treating NaN/None/nan as empty."""
+    s = str(value or "").strip()
+    return "" if s.lower() in ("nan", "none", "nat", "null") else s
+
+
 def _df_to_jobs(df, board: JobBoard) -> list[Job]:
     if df is None or df.empty:
         return []
     jobs = []
     for _, row in df.iterrows():
-        url = str(row.get("job_url") or "")
-        title = str(row.get("title") or "")
+        url = _clean(row.get("job_url"))
+        title = _clean(row.get("title"))
         if not url or not title:
             continue
         min_amt = row.get("min_amount")
         max_amt = row.get("max_amount")
-        currency = str(row.get("currency") or "")
+        currency = _clean(row.get("currency"))
         if min_amt and max_amt:
             salary = f"{currency} {int(min_amt):,}–{int(max_amt):,}".strip()
         elif min_amt:
@@ -69,14 +75,14 @@ def _df_to_jobs(df, board: JobBoard) -> list[Job]:
             salary = ""
         jobs.append(Job(
             title=title,
-            company=str(row.get("company") or "Unknown"),
-            location=str(row.get("location") or ""),
+            company=_clean(row.get("company")) or "Unknown",
+            location=_clean(row.get("location")),
             url=url,
             board=board,
-            description=str(row.get("description") or ""),
+            description=_clean(row.get("description")),
             salary=salary,
-            date_posted=str(row.get("date_posted") or ""),
-            job_type=str(row.get("job_type") or ""),
+            date_posted=_clean(row.get("date_posted")),
+            job_type=_clean(row.get("job_type")),
         ))
     logger.info(f"  JobSpy {board.value}: {len(jobs)} jobs found")
     return jobs
@@ -170,3 +176,29 @@ class JobSpyGoogleScraper:
 
     def get_job_details(self, job: Job) -> Job:
         return job
+
+
+class JobSpyLinkedInScraper:
+    """LinkedIn via python-jobspy (handles anti-bot + returns full descriptions)."""
+
+    def scrape(self, query: SearchQuery, max_results: int = 50) -> list[Job]:
+        if not JOBSPY_AVAILABLE:
+            logger.warning("Skipping LinkedIn JobSpy (python-jobspy not installed)")
+            return []
+        try:
+            df = _jobspy_scrape(
+                site_name=["linkedin"],
+                search_term=query.keywords,
+                location=query.location or "",
+                results_wanted=max_results,
+                hours_old=query.max_age_days * 24,
+                is_remote=bool(query.remote),
+                verbose=0,
+            )
+            return _df_to_jobs(df, JobBoard.LINKEDIN)
+        except Exception as e:
+            logger.error(f"JobSpy LinkedIn error: {e}")
+            return []
+
+    def get_job_details(self, job: Job) -> Job:
+        return job  # jobspy returns full descriptions

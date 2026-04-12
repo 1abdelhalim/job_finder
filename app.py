@@ -48,7 +48,7 @@ def create_app():
 
         # Top jobs
         top = conn.execute(
-            "SELECT * FROM jobs WHERE hidden = 0 ORDER BY match_score DESC, date_posted DESC LIMIT 20"
+            "SELECT * FROM jobs WHERE hidden = 0 ORDER BY match_score DESC, CASE WHEN date_posted IS NULL OR date_posted = '' OR LOWER(date_posted) IN ('nan','nat','none','null') THEN 0 ELSE 1 END DESC, date_posted DESC LIMIT 20"
         ).fetchall()
 
         conn.close()
@@ -95,13 +95,15 @@ def create_app():
 
         where_sql = " AND ".join(where)
 
+        # CASE pushes blank/NaN/NaT dates to the bottom regardless of sort direction
+        _valid_date = "CASE WHEN date_posted IS NULL OR date_posted = '' OR LOWER(date_posted) IN ('nan','nat','none','null') THEN 0 ELSE 1 END"
         order_map = {
-            "score": "match_score DESC, date_posted DESC",
-            "date": "date_posted DESC, match_score DESC",
-            "company": "company ASC, match_score DESC",
-            "title": "title ASC, match_score DESC",
+            "score": f"match_score DESC, {_valid_date} DESC, date_posted DESC",
+            "date": f"{_valid_date} DESC, date_posted DESC, match_score DESC",
+            "company": f"company ASC, match_score DESC",
+            "title": f"title ASC, match_score DESC",
         }
-        order_sql = order_map.get(sort, "match_score DESC, date_posted DESC")
+        order_sql = order_map.get(sort, f"match_score DESC, {_valid_date} DESC, date_posted DESC")
 
         total = conn.execute(f"SELECT COUNT(*) FROM jobs WHERE {where_sql}", params).fetchone()[0]
         rows = conn.execute(

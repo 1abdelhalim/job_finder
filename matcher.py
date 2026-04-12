@@ -56,6 +56,20 @@ AI_KEYWORDS = {
     "medical imaging", "speech recognition", "recommender system",
 }
 
+# Keywords that indicate a strong specialty match for Ahmed's specific background.
+# Jobs containing these score higher than generic ML/AI roles.
+SPECIALTY_KEYWORDS = {
+    "computer vision", "3d reconstruction", "gaussian splatting", "nerf",
+    "neural rendering", "depth estimation", "stereo vision", "point cloud",
+    "pose estimation", "slam", "visual odometry", "multi-view", "scene reconstruction",
+    "differentiable rendering", "hand pose", "object detection", "segmentation",
+    "perception", "robotics perception", "autonomous driving", "self-driving",
+    "adas", "lidar", "embodied ai", "physical ai", "robot learning",
+    "vision language", "vlm", "multimodal", "diffusion model",
+    "3d vision", "3d scene", "augmented reality", "mixed reality",
+    "cvpr", "iccv", "eccv", "neurips",
+}
+
 SENIORITY_LEVELS = {
     "intern": 0,
     "junior": 1,
@@ -131,8 +145,9 @@ class JobMatcher:
             "semantic": 0.30,
             "location": 0.10,
             "experience": 0.05,
-                        "seniority": 0.10,
-                        "recency": 0.04,
+            "seniority": 0.10,
+            "specialty": 0.10,
+            "recency": 0.0,
         })
         # Ensure semantic weight exists for profiles with old-style weights
         if "semantic" not in self.weights:
@@ -244,8 +259,8 @@ class JobMatcher:
         if self._life_story_tf:
             experience_score = cosine_sim(job_tf, self._life_story_tf)
 
-        # 6. Recency boost — newer jobs get up to 0.10 bonus
-        recency_score = self._recency_score(job)
+        # 6. Specialty boost — CV/3D/robotics/perception keyword density
+        specialty_score = self._specialty_score(job)
 
         # 7. Seniority fit — penalize jobs requiring more seniority than preferred
         seniority_score = self._seniority_score(job)
@@ -258,7 +273,7 @@ class JobMatcher:
             + w.get("location", 0.10) * location_score
             + w.get("experience", 0.05) * experience_score
             + w.get("seniority", 0.10) * seniority_score
-            + w.get("recency", 0.04) * recency_score
+            + w.get("specialty", 0.10) * specialty_score
         )
         total = min(total, 1.0)
 
@@ -269,11 +284,19 @@ class JobMatcher:
             "location_score": round(location_score, 3),
             "experience_score": round(experience_score, 3),
             "seniority_score": round(seniority_score, 3),
-            "recency_score": round(recency_score, 3),
+            "specialty_score": round(specialty_score, 3),
             "weighted_total": round(total, 3),
         }
 
         return round(total, 3), details
+
+    def _specialty_score(self, job: Job) -> float:
+        """Boost jobs that match Ahmed's specific CV/3D/robotics/perception background.
+        Returns 0-1 based on fraction of specialty keywords present in the job text."""
+        text = f"{job.title} {job.description}".lower()
+        hits = sum(1 for kw in SPECIALTY_KEYWORDS if kw in text)
+        # Saturates at 5 matches → score 1.0
+        return min(1.0, hits / 5.0)
 
     def _recency_score(self, job: Job) -> float:
         """Score from 0-1 based on how recently the job was posted. 1.0 = today."""
@@ -364,7 +387,7 @@ class JobMatcher:
                 del job._cached_embedding
 
         # Sort by score first, then by date (newer first) as tiebreaker
-        ranked = sorted(ai_jobs, key=lambda j: (j.match_score, str(j.date_posted or "")), reverse=True)
+        ranked = sorted(ai_jobs, key=lambda j: (j.match_score, j.date_posted if j.date_posted and j.date_posted.lower() not in ("nan", "none", "nat") else "0000"), reverse=True)
         if min_score > 0:
             ranked = [j for j in ranked if j.match_score >= min_score]
 

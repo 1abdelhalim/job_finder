@@ -273,7 +273,7 @@ def get_top_jobs(limit: int = 20, min_score: float = 0.0, db_path: Path = DB_PAT
     rows = conn.execute(
         """SELECT * FROM jobs
            WHERE match_score >= ? AND hidden = 0
-           ORDER BY match_score DESC, date_posted DESC
+           ORDER BY match_score DESC, CASE WHEN date_posted IS NULL OR date_posted = '' OR LOWER(date_posted) IN ('nan','nat','none','null') THEN 0 ELSE 1 END DESC, date_posted DESC
            LIMIT ?""",
         (min_score, limit),
     ).fetchall()

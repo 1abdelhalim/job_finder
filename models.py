@@ -22,6 +22,8 @@ class JobBoard(Enum):
     LEVER = "lever"
     LINKEDIN_POSTS = "linkedin_posts"
     INTERNET = "internet"
+    BAYT = "bayt"
+    GULFTALENT = "gulftalent"
 
 
 @dataclass
