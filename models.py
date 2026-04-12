@@ -24,6 +24,7 @@ class JobBoard(Enum):
     INTERNET = "internet"
     BAYT = "bayt"
     GULFTALENT = "gulftalent"
+    WUZZUF = "wuzzuf"
 
 
 @dataclass

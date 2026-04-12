@@ -14,6 +14,7 @@ Usage:
     python main.py daemon                    # Start background automation (every 2 days)
     python main.py customize --url <URL>     # Generate custom CV for a specific job
     python main.py answers --url <URL>       # Show pre-generated form answers
+    python main.py init-profile              # Generate profile.yaml from life-story.md (requires Ollama)
 """
 
 import argparse
@@ -509,6 +510,26 @@ def cmd_score(args):
         print(f"\nSaved to DB ({jobs_saved} new).")
 
 
+def cmd_init_profile(args):
+    """Generate profile.yaml from a life-story.md using a local LLM."""
+    from profile_generator import generate_profile_from_life_story
+    life_story_path = Path(args.life_story).expanduser()
+    output_path = Path(args.output).expanduser()
+
+    if not life_story_path.exists():
+        print(f"Life story not found: {life_story_path}")
+        print(f"Create it first — a template is at: cv_templates/life_story_template.md")
+        sys.exit(1)
+
+    ok = generate_profile_from_life_story(
+        life_story_path=life_story_path,
+        output_path=output_path,
+        model=getattr(args, "model", None),
+    )
+    if not ok:
+        sys.exit(1)
+
+
 def main():
     parser = argparse.ArgumentParser(description="AI Apply — Automated job application pipeline")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -574,6 +595,24 @@ def main():
     p_score.add_argument("--location", default="", help="Job location (optional, affects location score)")
     p_score.add_argument("--save", action="store_true", help="Also save the job to DB")
     p_score.set_defaults(func=cmd_score)
+
+    # init-profile
+    p_init = subparsers.add_parser(
+        "init-profile",
+        help="Generate profile.yaml from a life-story.md using a local LLM (requires Ollama)"
+    )
+    p_init.add_argument(
+        "--life-story",
+        default=str(Path(__file__).parent / "life-story.md"),
+        help="Path to your life-story.md (default: life-story.md in project root)"
+    )
+    p_init.add_argument(
+        "--output",
+        default=str(Path(__file__).parent / "profile.yaml"),
+        help="Output path for profile.yaml (default: profile.yaml in project root)"
+    )
+    p_init.add_argument("--model", default=None, help="Ollama model to use (auto-detected if not set)")
+    p_init.set_defaults(func=cmd_init_profile)
 
     args = parser.parse_args()
     args.func(args)

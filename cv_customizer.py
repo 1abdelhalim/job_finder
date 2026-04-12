@@ -17,7 +17,10 @@ from llm import generate_latex, generate_structured, check_ollama_available
 logger = logging.getLogger(__name__)
 
 CV_DIR = Path(os.path.expanduser("~/CV"))
-LIFE_STORY_PATH = CV_DIR / "life-story.md"
+# Life story can live in the project root OR in ~/CV — project root takes priority
+_PROJECT_LIFE_STORY = Path(__file__).parent / "life-story.md"
+_CV_LIFE_STORY = CV_DIR / "life-story.md"
+LIFE_STORY_PATH = _PROJECT_LIFE_STORY if _PROJECT_LIFE_STORY.exists() else _CV_LIFE_STORY
 APPLICATIONS_DIR = CV_DIR / "applications"
 
 # Base templates
@@ -60,6 +63,19 @@ def _slugify(text: str) -> str:
     text = re.sub(r'[^a-z0-9\s-]', '', text)
     text = re.sub(r'[\s]+', '-', text)
     return text[:60]
+
+
+def _extract_user_name(life_story: str) -> str:
+    """Extract the user's full name from the life story."""
+    for line in life_story.splitlines()[:20]:
+        m = re.search(r'\*\*Full Name:\*\*\s*(.+)', line)
+        if m:
+            return m.group(1).strip()
+    # Fallback: first H1 heading
+    m = re.search(r'^#\s+Life Story\s*[—–-]\s*(.+)', life_story, re.MULTILINE)
+    if m:
+        return m.group(1).strip()
+    return "the candidate"
 
 
 def analyze_job(description: str, title: str = "", company: str = "", model: str = "qwen3.5:9b") -> Dict:
@@ -106,16 +122,17 @@ def generate_employment_tex(
     domain = job_analysis.get("domain", "general_ml")
     example_path = EXAMPLE_EMPLOYMENT.get(domain)
     if not example_path:
-        # Default to 3d_vision example
         example_path = EXAMPLE_EMPLOYMENT.get("3d_vision")
     example = _read_file(example_path) if example_path and example_path.exists() else ""
 
-    system = """You are an expert CV writer for a computer vision researcher named Ahmed Tawfik Aboukhadra.
+    user_name = _extract_user_name(life_story)
+
+    system = f"""You are an expert CV writer helping {user_name} apply for jobs.
 You produce LaTeX code using the 'curve' document class rubric format.
 You MUST output ONLY valid LaTeX — no markdown, no explanations, no code fences.
 The output must compile with pdflatex without errors."""
 
-    prompt = f"""Customize the employment section of Ahmed's CV for this specific job.
+    prompt = f"""Customize the employment section of {user_name}'s CV for this specific job.
 
 TARGET JOB ANALYSIS:
 - Domain: {job_analysis.get('domain', 'general_ml')}
@@ -123,26 +140,25 @@ TARGET JOB ANALYSIS:
 - Focus Areas: {', '.join(job_analysis.get('focus_areas', []))}
 - Keywords: {', '.join(job_analysis.get('keywords', []))}
 
-MASTER SOURCE OF TRUTH (Ahmed's full background):
+MASTER SOURCE OF TRUTH ({user_name}'s full background):
 {life_story[:6000]}
 
-BASE TEMPLATE (default employment.tex):
+BASE TEMPLATE (default employment.tex — keep ALL entries present here):
 {base_template}
 
 {"EXAMPLE of a customized version for a similar domain:" if example else ""}
 {example}
 
 RULES:
-1. Keep EXACTLY 4 entries: DFKI (2021-Present), CISPA (2021), HackerOne (2020), Ulm (2018)
-2. Keep the exact same dates and job titles
-3. HEAVILY customize the DFKI entry to emphasize technologies and work relevant to the target job
-4. Lightly adjust the CISPA and HackerOne entries to emphasize relevant aspects
-5. Keep the Ulm entry mostly unchanged
-6. Use \\textbf{{}} for key achievements and metrics (13$\\times$ speed-up, 1st Place, +5\\%)
-7. Use \\par to start description paragraphs
-8. Escape special LaTeX characters: & → \\&, % → \\%, $ → use math mode
-9. Use the EXACT format: \\begin{{rubric}}{{Experience}} ... \\entry*[dates]% ... \\end{{rubric}}
-10. Do NOT add any text outside the rubric environment
+1. Keep ALL job entries that appear in the base template — do not add or remove entries
+2. Keep the exact same dates and job titles from the base template
+3. HEAVILY customize the most recent/relevant entry to emphasize technologies relevant to the target job
+4. Lightly adjust other entries to emphasize relevant aspects
+5. Use \\textbf{{}} for key achievements and metrics
+6. Use \\par to start description paragraphs
+7. Escape special LaTeX characters: & → \\&, % → \\%, $ → use math mode
+8. Use the EXACT format: \\begin{{rubric}}{{Experience}} ... \\entry*[dates]% ... \\end{{rubric}}
+9. Do NOT add any text outside the rubric environment
 
 Output the complete employment.tex content:"""
 
@@ -170,11 +186,13 @@ def generate_skills_tex(
         example_path = EXAMPLE_SKILLS.get("perception")
     example = _read_file(example_path) if example_path and example_path.exists() else ""
 
-    system = """You are an expert CV writer for a computer vision researcher.
+    user_name = _extract_user_name(life_story)
+
+    system = f"""You are an expert CV writer helping {user_name} apply for jobs.
 You produce LaTeX code using the 'curve' document class rubric format.
 Output ONLY valid LaTeX — no markdown, no explanations, no code fences."""
 
-    prompt = f"""Customize the skills section of Ahmed's CV for this specific job.
+    prompt = f"""Customize the skills section of {user_name}'s CV for this specific job.
 
 TARGET JOB ANALYSIS:
 - Domain: {job_analysis.get('domain', 'general_ml')}
@@ -219,11 +237,13 @@ def generate_projects_tex(
 ) -> str:
     """Generate a customized projects.tex for a specific job."""
 
-    system = """You are an expert CV writer for a computer vision researcher.
+    user_name = _extract_user_name(life_story)
+
+    system = f"""You are an expert CV writer helping {user_name} apply for jobs.
 You produce LaTeX code using the 'curve' document class rubric format.
 Output ONLY valid LaTeX — no markdown, no explanations, no code fences."""
 
-    prompt = f"""Customize the projects section of Ahmed's CV for this specific job.
+    prompt = f"""Customize the projects section of {user_name}'s CV for this specific job.
 
 TARGET JOB:
 - Domain: {job_analysis.get('domain', 'general_ml')}

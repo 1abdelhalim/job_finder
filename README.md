@@ -4,6 +4,25 @@ Fully automated job application system: scrapes listings from multiple job sourc
 
 ---
 
+## Screenshots
+
+### Dashboard
+![Dashboard](screenshots/dashboard.png)
+
+### All Jobs
+![All Jobs](screenshots/jobs.png)
+
+### Automation Pipeline
+![Pipeline](screenshots/pipeline.png)
+
+### Applications
+![Applications](screenshots/applications.png)
+
+### Settings
+![Settings](screenshots/settings.png)
+
+---
+
 ## Features
 
 - **Multi-source scraping** — pulls from job boards + internet-wide hiring search simultaneously
@@ -36,6 +55,9 @@ Fully automated job application system: scrapes listings from multiple job sourc
 | **Glassdoor** | Web scraper | No |
 | **StepStone** | Web scraper | No |
 | **Internet Search** | DuckDuckGo web search (all domains) | No |
+| **Wuzzuf** | Web scraper (Egypt) | No |
+| **Bayt** | Web scraper (MENA) | No |
+| **GulfTalent** | Web scraper (Gulf) | No |
 
 ---
 
@@ -60,26 +82,43 @@ bash setup_ollama.sh
 
 ### 3. Configure Your Profile
 
-Edit `profile.yaml` with your skills, desired titles, keywords, locations, and scoring weights.
+#### Option A — LLM-assisted setup (recommended, requires Ollama)
 
-```yaml
-pipeline:
-  ollama_model: qwen3.5:9b   # local model used for CV/cover letter generation
-  min_score: 0.50            # minimum match score to trigger automation
-  max_applications_per_run: 10
+1. Fill in `life-story.md` (project root) with your complete background — work experience, projects, skills, education. A detailed template is at `cv_templates/life_story_template.md`.
+
+2. Generate `profile.yaml` automatically:
+   ```bash
+   python main.py init-profile
+   # or with custom paths:
+   python main.py init-profile --life-story ~/my-story.md --output profile.yaml
+   ```
+
+3. Review and edit the generated `profile.yaml`.
+
+#### Option B — Manual setup
+
+Copy and fill in the example:
+```bash
+cp profile.yaml.example profile.yaml
 ```
 
-For CV customization, place your `life-story.md` and LaTeX CV files in `~/CV/`:
+#### CV Templates
 
+```bash
+# Copy LaTeX templates to your CV directory:
+mkdir -p ~/CV ~/CV/applications
+cp cv_templates/cv-llt-template.tex     ~/CV/cv-llt.tex
+cp cv_templates/employment-template.tex ~/CV/employment.tex
+cp cv_templates/education-template.tex  ~/CV/education.tex
+cp cv_templates/skills-template.tex     ~/CV/skills.tex
+cp cv_templates/projects-template.tex   ~/CV/projects.tex
+cp cv_templates/settings.sty            ~/CV/settings.sty
+touch ~/CV/own-bib.bib
 ```
-~/CV/
-├── life-story.md         # free-form description of your background — fed to the LLM
-├── cv-llt.tex            # main CV LaTeX file
-├── employment.tex        # overwritten per application
-├── skills.tex            # overwritten per application
-├── projects.tex          # overwritten per application
-└── applications/         # output folder — one subfolder per application
-```
+
+See `cv_templates/README.md` for LaTeX installation instructions and customization guide.
+
+The life story (`life-story.md`) can live in the **project root** or in `~/CV/` — the project root takes priority and is the recommended location since it's also used for semantic job matching.
 
 ### 4. Set API Keys (optional but recommended)
 

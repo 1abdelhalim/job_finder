@@ -1,0 +1,112 @@
+%% cv-llt-template.tex — Two-page academic/research CV using the curve class
+%% Based on the LLT curve template by LianTze Lim (liantze@gmail.com)
+%%
+%% USAGE:
+%%   1. Fill in your details in the HEADER section below (search for YOUR_*)
+%%   2. Fill in the content files: employment.tex, education.tex, skills.tex,
+%%      projects.tex, publications.tex, misc.tex, referee.tex
+%%   3. Compile:
+%%        latexmk -pdf cv-llt.tex
+%%      or manually:
+%%        pdflatex cv-llt.tex && biber cv-llt && pdflatex cv-llt.tex && pdflatex cv-llt.tex
+%%
+%% REQUIREMENTS: See README.md for LaTeX installation instructions.
+%%
+\documentclass[a4paper,skipsamekey,11pt,english]{curve}
+
+%% Biblatex citation style (used for the publications list)
+\PassOptionsToPackage{style=ieee,sorting=ydnt,uniquename=init,defernumbers=true}{biblatex}
+
+%% Style definitions live in settings.sty
+\usepackage{settings}
+
+%% If you use a different bib style, add \DeclareFieldFormat overrides here AFTER loading settings.sty
+\DefineBibliographyStrings{english}{url={\textsc{url}}}
+
+%% If you have a publications .bib file, set its path here.
+%% Remove or comment out if you don't have publications.
+\addbibresource{own-bib.bib}
+
+%% Bold your own name in the publications list.
+%% Format: LastName/First\bibnamedelima Middle  (no space after last entry)
+%% Example: \mynames{Smith/John\bibnamedelima A}
+\mynames{YOUR_LASTNAME/YOUR_FIRSTNAME\bibnamedelima YOUR_MIDDLENAME_OR_INITIAL}
+%% MAKE SURE THERE IS NO SPACE AFTER THE FINAL NAME IN YOUR \mynames LIST
+
+%% ── Fonts ────────────────────────────────────────────────────────────────────
+\ifxetexorluatex
+  \usepackage{fontspec}
+  \usepackage[p,osf,swashQ]{cochineal}
+  \usepackage[medium,bold]{cabin}
+  \usepackage[varqu,varl,scale=0.9]{zi4}
+\else
+  \usepackage[T1]{fontenc}
+  \usepackage[p,osf,swashQ]{cochineal}
+  \usepackage{cabin}
+  \usepackage[varqu,varl,scale=0.9]{zi4}
+\fi
+
+%% ── Layout tweaks (uncomment to override) ────────────────────────────────────
+% \geometry{left=1cm,right=1cm,top=1.5cm,bottom=1.5cm}
+
+%% ── Colour tweaks (uncomment to override) ────────────────────────────────────
+% \definecolor{SwishLineColour}{HTML}{00FFFF}
+% \definecolor{MarkerColour}{HTML}{0000CC}
+
+%% ── Photo ─────────────────────────────────────────────────────────────────────
+%% Photo is only shown if "fullonly" is included.
+%% To hide the photo, comment out \includecomment{fullonly} and uncomment \excludecomment.
+\includecomment{fullonly}
+% \excludecomment{fullonly}
+
+%% ─────────────────────────────────────────────────────────────────────────────
+%%  HEADER — Replace all YOUR_* placeholders
+%% ─────────────────────────────────────────────────────────────────────────────
+
+\leftheader{%
+  {\LARGE\bfseries\sffamily YOUR_FIRST_NAME YOUR_LAST_NAME}
+
+  \makefield{\faEnvelope[regular]}{\href{mailto:YOUR_EMAIL}{\texttt{YOUR_EMAIL}}}
+
+  %% Add/remove contact fields as needed:
+  \makefield{\faLinkedin}{\href{https://linkedin.com/in/YOUR_LINKEDIN_HANDLE}{\texttt{YOUR_LINKEDIN_HANDLE}}}
+  \makefield{\faGithub}{\href{https://github.com/YOUR_GITHUB}{\texttt{YOUR_GITHUB}}}
+  % \makefield{\faGlobe}{\url{https://your-website.com}}
+  % \makefield{\faGraduationCap}{\href{https://scholar.google.com/citations?user=XXXX}{\texttt{GScholar}}}
+  % \makefield{\faPhone}{+1 234 567 8900}
+  % \makefield{\faMapMarker}{City, Country}
+}
+
+\rightheader{~}
+
+%% To include a photo, place photo.png (or photo.jpg) in the same directory.
+\begin{fullonly}
+\photo[r]{photo.png}
+\photoscale{0.13}
+\end{fullonly}
+
+\title{Curriculum Vitae}
+
+%% ─────────────────────────────────────────────────────────────────────────────
+%%  DOCUMENT BODY
+%% ─────────────────────────────────────────────────────────────────────────────
+\begin{document}
+\makeheaders[c]
+
+%% Include the rubric sections you want. Comment out sections you don't need.
+\makerubric{employment}
+\makerubric{education}
+% \makerubric{teaching}
+\makerubric{skills}
+\makerubric{projects}
+% \makerubric{misc}
+
+%% Second page — publications and referees
+\newpage
+%% Use \input (not \makerubric) for the publications section
+\input{publications}
+
+% \makerubric{referee}
+% \input{referee-full}
+
+\end{document}

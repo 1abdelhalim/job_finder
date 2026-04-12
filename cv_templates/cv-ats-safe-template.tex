@@ -1,0 +1,102 @@
+%% cv-ats-safe-template.tex — ATS-friendly single-column resume
+%% Plain LaTeX, no tables, no custom fonts, no icons.
+%% Designed to parse cleanly through Applicant Tracking Systems.
+%%
+%% Compile: pdflatex cv-ats-safe.tex
+%%
+%% SETUP: See README.md for LaTeX installation instructions.
+%% Replace all YOUR_* placeholders with your own details.
+%%
+\documentclass[10pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[a4paper,margin=1.6cm]{geometry}
+\usepackage[hidelinks]{hyperref}
+\usepackage{enumitem}
+\usepackage{titlesec}
+\usepackage{lmodern}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{1.5pt}
+\setlist[itemize]{leftmargin=1.1em,itemsep=0pt,topsep=0pt,parsep=0pt,partopsep=0pt}
+\titleformat{\section}{\large\bfseries}{}{0pt}{}
+\titlespacing*{\section}{0pt}{4pt}{2pt}
+\pagestyle{empty}
+
+\begin{document}
+
+%% ── HEADER ───────────────────────────────────────────────────────────────────
+{\LARGE \textbf{YOUR FULL NAME}}\\
+City, Country \;|\; \href{mailto:YOUR_EMAIL}{YOUR\_EMAIL} \;|\;
+\href{https://linkedin.com/in/YOUR_LINKEDIN}{linkedin.com/in/YOUR\_LINKEDIN}\\
+\href{https://github.com/YOUR_GITHUB}{github.com/YOUR\_GITHUB}
+%% Add website / Google Scholar if applicable:
+%% \;|\; \href{https://your-website.com}{your-website.com}
+
+\section*{Summary}
+%% 2-3 sentences. Focus on domain, key skills, and a standout achievement.
+YOUR DOMAIN Researcher/Engineer specializing in X, Y, and Z. Built [key system] achieving [metric]. [One more sentence about background or goal].
+
+\section*{Experience}
+
+\textbf{Job Title, Company Name} \hfill YEAR -- Present\\
+City, Country
+\begin{itemize}
+    \item Achievement 1 with metric (\textbf{X\% improvement}, \textbf{1st Place}, etc.)
+    \item Achievement 2
+    \item Achievement 3
+    \item Technologies: Python, PyTorch, Docker, ...
+\end{itemize}
+
+\textbf{Job Title, Company Name} \hfill YEAR -- YEAR\\
+City, Country
+\begin{itemize}
+    \item Achievement 1
+    \item Achievement 2
+\end{itemize}
+
+%% Add more positions following the same pattern
+
+\section*{Education}
+
+\textbf{Ph.D. in YOUR FIELD, University Name} \hfill YEAR -- Present\\
+City, Country
+\begin{itemize}
+    \item Research focus: ...
+    \item Advisor: Prof. NAME
+\end{itemize}
+
+\textbf{M.Sc. in YOUR FIELD, University Name} \hfill YEAR -- YEAR\\
+City, Country
+\begin{itemize}
+    \item GPA: X.X/X.X
+    \item Thesis: ``Thesis Title''
+\end{itemize}
+
+\textbf{B.Sc. in YOUR FIELD, University Name} \hfill YEAR -- YEAR\\
+City, Country
+
+\section*{Skills}
+
+\textbf{Programming:} Python, C++, Java, Bash, SQL\\
+\textbf{ML/AI Frameworks:} PyTorch, TensorFlow, HuggingFace Transformers, scikit-learn\\
+\textbf{Domain:} [Your specialization — e.g., Computer Vision, NLP, Robotics, Data Engineering]\\
+\textbf{Tools:} Git, Docker, Linux, SLURM/HPC, LaTeX
+
+%% Publications section — remove if not applicable
+\section*{Selected Publications}
+
+\textbf{Paper Title (Venue YEAR)}\\
+YOUR NAME, Co-Author 1, Co-Author 2, Senior Author.
+\href{https://link-to-paper}{[paper]}
+\href{https://github.com/...}{[code]}
+
+%% Add more publications
+
+\section*{Awards \& Achievements}
+
+\begin{itemize}
+    \item \textbf{Award Name} -- Year -- Brief description
+    \item \textbf{Scholarship Name} -- Year -- Brief description
+\end{itemize}
+
+\end{document}

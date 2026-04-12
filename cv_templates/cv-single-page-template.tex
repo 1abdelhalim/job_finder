@@ -1,0 +1,147 @@
+%% cv-single-page-template.tex — Single-page two-column CV
+%% Compile: pdflatex cv-single-page.tex  (run twice for correct layout)
+%%
+%% SETUP: See README.md for LaTeX installation instructions.
+%% Replace all YOUR_* placeholders with your own details.
+%%
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[a4paper,left=1.35cm,right=1.35cm,top=1.2cm,bottom=1.2cm]{geometry}
+\usepackage{paracol}
+\usepackage[fixed]{fontawesome5}
+\usepackage[dvipsnames,svgnames]{xcolor}
+\PassOptionsToPackage{hyphens}{url}
+\usepackage[colorlinks=true,allcolors=black,breaklinks=true]{hyperref}
+\usepackage{tikz}
+\usetikzlibrary{shapes}
+\usepackage{relsize}
+\usepackage{graphicx}
+\usepackage{microtype}
+\linespread{1.05}
+\usepackage[p,osf,swashQ]{cochineal}
+\usepackage{cabin}
+\usepackage[varqu,varl,scale=0.9]{zi4}
+
+%% ── Colours (feel free to change) ────────────────────────────────────────────
+\definecolor{SwishLine}{HTML}{88AC0B}
+\definecolor{Marker}{HTML}{B6073F}
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0pt}
+\pagestyle{empty}
+\urlstyle{tt}
+
+%% Section heading
+\newcommand{\cvsec}[1]{%
+  \vspace{16pt}%
+  \begin{tikzpicture}[baseline]%
+    \shade[left color=SwishLine!60!white, right color=white]
+      rectangle (\linewidth,2.5pt);%
+    \node[font={\large\bfseries\sffamily},inner sep=0pt,
+          anchor=south west,text depth=.5ex,text height=1.5ex]
+      at (1pt,2pt) {#1};%
+  \end{tikzpicture}%
+  \vspace{2pt}%
+}
+
+\newcommand{\cvmark}{%
+  \hspace*{-0.4ex}{\color{Marker!80!black}\relscale{.85}\faBookmark}\hspace{0.5ex}%
+}
+
+\begin{document}
+
+%% ── HEADER ───────────────────────────────────────────────────────────────────
+\begin{minipage}[c]{0.76\textwidth}
+  {\LARGE\bfseries\sffamily YOUR_FIRST_NAME YOUR_LAST_NAME}\\[3pt]
+  {\normalsize\sffamily
+    YOUR_TITLE \textcolor{Marker}{$\cdot$}
+    YOUR_ROLE \textcolor{Marker}{$\cdot$}
+    YOUR_AFFILIATION%
+  }\\[4pt]
+  {\small
+    \makebox[1.1em]{\color{Marker!80!black}\faEnvelope[regular]}
+    \href{mailto:YOUR_EMAIL}{\texttt{YOUR_EMAIL}}\enspace
+    \makebox[1.1em]{\color{Marker!80!black}\faLinkedin}
+    \href{https://linkedin.com/in/YOUR_LINKEDIN}{\texttt{YOUR_LINKEDIN}}\enspace
+    \makebox[1.1em]{\color{Marker!80!black}\faGithub}
+    \href{https://github.com/YOUR_GITHUB}{\texttt{YOUR\_GITHUB}}\\
+    %% Optional:
+    % \makebox[1.1em]{\color{Marker!80!black}\faGlobe}\url{https://your-website.com}\enspace
+    % \makebox[1.1em]{\color{Marker!80!black}\faGraduationCap}\href{https://scholar.google.com/...}{\texttt{GScholar}}
+  }
+\end{minipage}\hfill
+\begin{minipage}[c]{0.22\textwidth}
+  \raggedleft
+  %% Uncomment to add a photo:
+  % \includegraphics[width=2.8cm,height=3.3cm,keepaspectratio]{photo.png}
+\end{minipage}
+
+\vspace{4pt}
+{\color{SwishLine}\rule{\linewidth}{1.5pt}}
+
+%% ── TWO-COLUMN LAYOUT ─────────────────────────────────────────────────────
+\setlength{\columnsep}{1em}
+\begin{paracol}{2}
+
+%% ── LEFT COLUMN ─────────────────────────────────────────────────────────────
+\cvsec{Experience}
+
+\cvmark\textbf{YOUR_MOST_RECENT_TITLE}\hfill\textit{YEAR -- Present}\\
+\textit{Company Name}\hfill City, Country\\
+\vspace{2pt}
+\begin{itemize}\itemsep0pt\parsep0pt\topsep0pt
+  \item Key achievement 1 — include metrics where possible (\textbf{40\% faster}, \textbf{1st Place})
+  \item Key achievement 2
+  \item Key achievement 3
+\end{itemize}
+
+\cvmark\textbf{PREVIOUS\_TITLE}\hfill\textit{YEAR -- YEAR}\\
+\textit{Company Name}\hfill City, Country\\
+\vspace{2pt}
+\begin{itemize}\itemsep0pt\parsep0pt\topsep0pt
+  \item Achievement 1
+  \item Achievement 2
+\end{itemize}
+
+%% Add more positions following the same pattern
+
+\switchcolumn
+
+%% ── RIGHT COLUMN ────────────────────────────────────────────────────────────
+\cvsec{Education}
+
+\cvmark\textbf{Ph.D.\ in YOUR FIELD}\hfill\textit{YEAR -- Present}\\
+\textit{University Name}\hfill City, Country\\
+{\small Advisor: Prof.\ NAME}
+
+\cvmark\textbf{M.Sc.\ in YOUR FIELD}\hfill\textit{YEAR -- YEAR}\\
+\textit{University Name}\hfill City, Country\\
+{\small GPA: X.X/X.X}
+
+\cvmark\textbf{B.Sc.\ in YOUR FIELD}\hfill\textit{YEAR -- YEAR}\\
+\textit{University Name}\hfill City, Country
+
+\cvsec{Skills}
+
+\textbf{Programming:} Python, C++, JavaScript, \ldots
+
+\textbf{ML/AI:} PyTorch, TensorFlow, scikit-learn, HuggingFace, \ldots
+
+\textbf{Domain:} YOUR SPECIALIZATION HERE
+
+\textbf{Tools:} Git, Docker, Linux, \LaTeX, \ldots
+
+\cvsec{Awards}
+
+$\bullet$ \textbf{Award Name} YEAR\\
+$\bullet$ Scholarship / Honour YEAR
+
+\cvsec{Selected Publications}  %% Remove if not applicable
+
+$\bullet$ \textbf{Paper Title (Venue YEAR)}\\
+YOUR NAME, Co-Author.
+\href{https://link}{[paper]}
+
+\end{paracol}
+
+\end{document}

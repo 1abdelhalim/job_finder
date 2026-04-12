@@ -17,6 +17,7 @@ from .linkedin_posts import LinkedInPostsScraper
 from .internet_search import InternetSearchScraper
 from .bayt import BaytScraper
 from .gulftalent import GulfTalentScraper
+from .wuzzuf import WuzzufScraper
 
 SCRAPERS = {
     # JobSpy-backed scrapers (handle JS rendering + bot detection)
@@ -39,4 +40,5 @@ SCRAPERS = {
     "himalayas": HimalayasScraper,
     "bayt": BaytScraper,
     "gulftalent": GulfTalentScraper,
+    "wuzzuf": WuzzufScraper,        # Egypt's largest job board
 }
