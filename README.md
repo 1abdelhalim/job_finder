@@ -82,43 +82,55 @@ bash setup_ollama.sh
 
 ### 3. Configure Your Profile
 
-#### Option A — LLM-assisted setup (recommended, requires Ollama)
+Everything lives **inside the project directory** — no external folders needed.
 
-1. Fill in `life-story.md` (project root) with your complete background — work experience, projects, skills, education. A detailed template is at `cv_templates/life_story_template.md`.
+```
+job_finder/
+├── life-story.md        ← fill this in (your background)
+├── profile.yaml         ← fill this in (search config)
+└── cv/                  ← your LaTeX CV files go here
+    ├── cv-llt.tex
+    ├── employment.tex
+    ├── skills.tex
+    ├── projects.tex
+    ├── education.tex
+    ├── settings.sty
+    ├── own-bib.bib
+    └── applications/    ← auto-created; one subfolder per application
+```
 
-2. Generate `profile.yaml` automatically:
-   ```bash
-   python main.py init-profile
-   # or with custom paths:
-   python main.py init-profile --life-story ~/my-story.md --output profile.yaml
-   ```
+#### Step 1 — Fill in your life story
 
-3. Review and edit the generated `profile.yaml`.
+Edit `life-story.md` in the project root. This is the master source of truth for matching and CV generation. A blank template is at `cv_templates/life_story_template.md`.
 
-#### Option B — Manual setup
+#### Step 2 — Generate profile.yaml (requires Ollama)
 
-Copy and fill in the example:
+```bash
+python main.py init-profile
+```
+
+Or copy and fill in manually:
 ```bash
 cp profile.yaml.example profile.yaml
 ```
 
-#### CV Templates
+#### Step 3 — Set up your LaTeX CV (optional — only needed for PDF generation)
 
+Copy the blank templates into `cv/`:
 ```bash
-# Copy LaTeX templates to your CV directory:
-mkdir -p ~/CV ~/CV/applications
-cp cv_templates/cv-llt-template.tex     ~/CV/cv-llt.tex
-cp cv_templates/employment-template.tex ~/CV/employment.tex
-cp cv_templates/education-template.tex  ~/CV/education.tex
-cp cv_templates/skills-template.tex     ~/CV/skills.tex
-cp cv_templates/projects-template.tex   ~/CV/projects.tex
-cp cv_templates/settings.sty            ~/CV/settings.sty
-touch ~/CV/own-bib.bib
+mkdir -p cv/applications
+cp cv_templates/cv-llt-template.tex     cv/cv-llt.tex
+cp cv_templates/employment-template.tex cv/employment.tex
+cp cv_templates/education-template.tex  cv/education.tex
+cp cv_templates/skills-template.tex     cv/skills.tex
+cp cv_templates/projects-template.tex   cv/projects.tex
+cp cv_templates/settings.sty            cv/settings.sty
+touch cv/own-bib.bib
 ```
 
-See `cv_templates/README.md` for LaTeX installation instructions and customization guide.
+Then fill in the `YOUR_*` placeholders in each file. See `cv_templates/README.md` for LaTeX installation instructions.
 
-The life story (`life-story.md`) can live in the **project root** or in `~/CV/` — the project root takes priority and is the recommended location since it's also used for semantic job matching.
+> Job scraping and matching work without any CV setup. LaTeX + Ollama are only required for the PDF generation step.
 
 ### 4. Set API Keys (optional but recommended)
 

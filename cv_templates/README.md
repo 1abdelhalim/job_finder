@@ -49,30 +49,28 @@ Make sure `latexmk` and `biber` are available in PATH.
 
 ## 2. Set Up Your CV Directory
 
-The system expects your CV files to live in `~/CV/` (configurable via `cv_dir` in `profile.yaml`).
+Your CV files live in `cv/` inside the project root (the default). You can change this via `cv_dir` in `profile.yaml` if you prefer a different location.
 
 ```bash
-mkdir -p ~/CV ~/CV/applications
+# From the project root:
+mkdir -p cv/applications
 
 # Copy the templates you want to use:
-cp cv_templates/cv-llt-template.tex     ~/CV/cv-llt.tex
-cp cv_templates/employment-template.tex ~/CV/employment.tex
-cp cv_templates/education-template.tex  ~/CV/education.tex
-cp cv_templates/skills-template.tex     ~/CV/skills.tex
-cp cv_templates/projects-template.tex   ~/CV/projects.tex
+cp cv_templates/cv-llt-template.tex     cv/cv-llt.tex
+cp cv_templates/employment-template.tex cv/employment.tex
+cp cv_templates/education-template.tex  cv/education.tex
+cp cv_templates/skills-template.tex     cv/skills.tex
+cp cv_templates/projects-template.tex   cv/projects.tex
 
-# Copy the required style file from this repo:
-cp cv_templates/settings.sty            ~/CV/settings.sty
+# Copy the required style file:
+cp cv_templates/settings.sty            cv/settings.sty
 
-# Copy the life story template:
-cp cv_templates/life_story_template.md  ~/CV/life-story.md
+# For single-page or ATS versions (optional):
+cp cv_templates/cv-single-page-template.tex cv/cv-single-page.tex
+cp cv_templates/cv-ats-safe-template.tex    cv/cv-ats-safe.tex
 
-# For single-page or ATS versions:
-cp cv_templates/cv-single-page-template.tex ~/CV/cv-single-page.tex
-cp cv_templates/cv-ats-safe-template.tex    ~/CV/cv-ats-safe.tex
-
-# Create an empty publications bib file if you don't have publications:
-touch ~/CV/own-bib.bib
+# Create an empty publications bib file (required even if you have no publications):
+touch cv/own-bib.bib
 ```
 
 ---
@@ -80,7 +78,7 @@ touch ~/CV/own-bib.bib
 ## 3. Fill In Your Content
 
 ### Step 1 — Write your life story
-Open `~/CV/life-story.md` and fill it in completely. This is the **single source of truth** the LLM reads to generate your tailored CV. Be detailed and honest — include:
+Open `life-story.md` in the **project root** and fill it in completely. This is the **single source of truth** the LLM reads to generate your tailored CV. Be detailed and honest — include:
 - Every job with responsibilities and achievements (numbers/metrics)
 - All projects with what they do and technologies used
 - Education history

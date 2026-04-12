@@ -4,3 +4,9 @@
 *.pyc
 .env
 .claude/
+
+# User-specific content — fill these in locally, don't commit
+profile.yaml
+life-story.md
+jobs.db
+cv/

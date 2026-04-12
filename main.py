@@ -338,6 +338,7 @@ def cmd_customize(args):
         location=job.get("location", ""),
         description=job.get("description", ""),
         model=model,
+        profile=profile,
     )
 
     if result:

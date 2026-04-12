@@ -16,36 +16,40 @@ from llm import generate_latex, generate_structured, check_ollama_available
 
 logger = logging.getLogger(__name__)
 
-CV_DIR = Path(os.path.expanduser("~/CV"))
-# Life story can live in the project root OR in ~/CV — project root takes priority
-_PROJECT_LIFE_STORY = Path(__file__).parent / "life-story.md"
-_CV_LIFE_STORY = CV_DIR / "life-story.md"
-LIFE_STORY_PATH = _PROJECT_LIFE_STORY if _PROJECT_LIFE_STORY.exists() else _CV_LIFE_STORY
-APPLICATIONS_DIR = CV_DIR / "applications"
+# Project root — life-story.md lives here by default
+_PROJECT_ROOT = Path(__file__).parent
 
-# Base templates
-BASE_EMPLOYMENT = CV_DIR / "employment.tex"
-BASE_SKILLS = CV_DIR / "skills.tex"
-BASE_PROJECTS = CV_DIR / "projects.tex"
-BASE_CV = CV_DIR / "cv-llt.tex"
-JOB_DESC_TEMPLATE = CV_DIR / "job-description.md"
+# Default CV directory: ./cv/ inside the project.
+# Override via `cv_dir` in profile.yaml (supports ~ expansion and absolute paths).
+_DEFAULT_CV_DIR = _PROJECT_ROOT / "cv"
 
-# Stable files to symlink (not customized per application)
+# Stable files to symlink from cv/ into each per-application directory
 SYMLINK_FILES = [
     "education.tex", "teaching.tex", "publications.tex", "misc.tex",
     "referee.tex", "referee-full.tex",
     "own-bib.bib", "photo.png", "photo.jpg", "settings.sty",
 ]
 
-# Few-shot examples for the LLM
-EXAMPLE_EMPLOYMENT = {
-    "3d_vision": (CV_DIR / "applications" / "pupil-labs" / "employment.tex"),
-    "vlm_multimodal": (CV_DIR / "applications" / "foundation-robotics" / "employment.tex"),
-}
-EXAMPLE_SKILLS = {
-    "perception": (CV_DIR / "applications" / "eternal-ag" / "skills.tex"),
-    "vlm_multimodal": (CV_DIR / "applications" / "foundation-robotics" / "skills.tex"),
-}
+
+def resolve_cv_dir(profile: Optional[dict] = None) -> Path:
+    """Return the CV directory from profile config, falling back to ./cv."""
+    raw = (profile or {}).get("pipeline", {}).get("cv_dir", "")
+    if raw:
+        return Path(os.path.expanduser(raw))
+    return _DEFAULT_CV_DIR
+
+
+def resolve_life_story_path(cv_dir: Path) -> Path:
+    """Return the life-story.md path — project root takes priority over cv_dir."""
+    project = _PROJECT_ROOT / "life-story.md"
+    return project if project.exists() else cv_dir / "life-story.md"
+
+
+# ---------------------------------------------------------------------------
+# Back-compat module-level accessors (used by cmd_customize in main.py)
+# ---------------------------------------------------------------------------
+CV_DIR = _DEFAULT_CV_DIR
+LIFE_STORY_PATH = resolve_life_story_path(CV_DIR)
 
 
 def _read_file(path: Path) -> str:
@@ -293,33 +297,29 @@ def validate_latex(content: str) -> bool:
     return True
 
 
-def create_application_dir(slug: str) -> Path:
+def create_application_dir(slug: str, cv_dir: Path) -> Path:
     """Create an application directory with copies and symlinks."""
-    dest = APPLICATIONS_DIR / slug
+    applications_dir = cv_dir / "applications"
+    dest = applications_dir / slug
     if dest.exists():
         logger.info("Application dir already exists: %s", dest)
         return dest
 
     dest.mkdir(parents=True, exist_ok=True)
 
-    # Copy customizable files
+    # Copy the main CV tex file
     for f in ["cv-llt.tex"]:
-        src = CV_DIR / f
+        src = cv_dir / f
         if src.exists():
             shutil.copy2(str(src), str(dest / f))
 
-    # Copy job description template
-    jd_template = JOB_DESC_TEMPLATE
-    if jd_template.exists():
-        shutil.copy2(str(jd_template), str(dest / "job-description.md"))
-
-    # Create symlinks for stable files
+    # Create symlinks back to cv_dir for stable (non-customized) files
     for f in SYMLINK_FILES:
-        src = dest / f
-        target = Path("../../" + f)
-        if not src.exists():
+        link = dest / f
+        target = cv_dir / f
+        if not link.exists() and target.exists():
             try:
-                src.symlink_to(target)
+                link.symlink_to(target)
             except OSError as e:
                 logger.warning("Failed to create symlink %s: %s", f, e)
 
@@ -369,24 +369,35 @@ def customize_cv_for_job(
     location: str,
     description: str,
     model: str = "qwen3.5:9b",
+    profile: Optional[dict] = None,
 ) -> Optional[Dict]:
     """Full CV customization pipeline for a job.
 
     Returns dict with: slug, cv_pdf_path, app_dir, or None on failure.
     """
     if not check_ollama_available():
-        logger.error("Ollama is not available. Run setup_ollama.sh first.")
+        logger.error(
+            "Ollama is not running. CV customization requires a local LLM.\n"
+            "Install and start it: bash setup_ollama.sh"
+        )
         return None
+
+    cv_dir = resolve_cv_dir(profile)
+    life_story_path = resolve_life_story_path(cv_dir)
 
     # Load master content
-    life_story = _read_file(LIFE_STORY_PATH)
+    life_story = _read_file(life_story_path)
     if not life_story:
-        logger.error("life-story.md not found at %s", LIFE_STORY_PATH)
+        logger.error(
+            "life-story.md not found. Expected at: %s\n"
+            "Copy cv_templates/life_story_template.md to that path and fill it in.",
+            life_story_path,
+        )
         return None
 
-    base_employment = _read_file(BASE_EMPLOYMENT)
-    base_skills = _read_file(BASE_SKILLS)
-    base_projects = _read_file(BASE_PROJECTS)
+    base_employment = _read_file(cv_dir / "employment.tex")
+    base_skills = _read_file(cv_dir / "skills.tex")
+    base_projects = _read_file(cv_dir / "projects.tex")
 
     # Create slug
     slug = _slugify(f"{company}-{title}")
@@ -427,7 +438,7 @@ def customize_cv_for_job(
 
     # Step 3: Create application directory
     logger.info("Step 3: Creating application directory...")
-    app_dir = create_application_dir(slug)
+    app_dir = create_application_dir(slug, cv_dir)
 
     # Write customized files
     (app_dir / "employment.tex").write_text(employment_tex, encoding="utf-8")

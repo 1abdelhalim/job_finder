@@ -146,7 +146,7 @@ def _build_profile_yaml(data: dict) -> dict:
             "max_applications_per_run": 10,
             "email_recipient": email,
             "email_digest_interval_days": 2,
-            "cv_dir": "~/CV",
+            "cv_dir": "./cv",
             "ollama_model": "qwen3.5:9b",
         },
     }
