@@ -57,24 +57,27 @@ search:
   job_type: ""           # "full-time", "part-time", "contract", or "" for all
   max_age_days: 14       # Skip jobs older than this many days
 
-  # Which job boards to scrape (remove boards you don't need)
+  # All registered boards (scrapers/__init__.py). Comment out any you do not need.
+  # API keys: copy .env.example → .env (ADZUNA_*, RAPIDAPI_KEY for adzuna + jsearch).
   boards:
-    - indeed        # Major global board
-    - glassdoor     # With company reviews
-    - google        # Google Jobs aggregator
-    - linkedin      # LinkedIn listings
-    - remotive      # Remote-focused
-    - arbeitnow     # EU + remote, no API key needed
-    - himalayas     # Remote tech jobs, no API key needed
-    - themuse       # Curated tech jobs, no API key needed
-    - adzuna        # Needs ADZUNA_APP_ID + ADZUNA_APP_KEY in .env
-    - jsearch       # Google Jobs via RapidAPI — needs RAPIDAPI_KEY in .env
-    - greenhouse    # Direct company ATS pages (see companies section below)
-    - lever         # Direct company ATS pages (see companies section below)
-    # MENA / Egypt market (add these if you're targeting Egypt or Gulf):
-    # - wuzzuf      # Egypt's largest tech job board (no key needed)
-    # - bayt        # Largest MENA job board — UAE, Saudi, Qatar, Egypt (no key needed)
-    # - gulftalent  # Senior tech roles in the Gulf region (no key needed)
+    - indeed        # Major boards (via python-jobspy)
+    - glassdoor
+    - google
+    - linkedin
+    - adzuna        # Needs ADZUNA_APP_ID + ADZUNA_APP_KEY
+    - jsearch       # Needs RAPIDAPI_KEY (RapidAPI JSearch)
+    - remotive      # Remote — REST API, no key
+    - arbeitnow     # EU + remote — no key
+    - themuse       # Curated tech — no key
+    - himalayas     # Remote tech — no key
+    - stepstone     # Germany (stepstone.de) — pairs with DE/EU locations
+    - greenhouse    # Company ATS (see companies:)
+    - lever
+    - linkedin_posts  # DuckDuckGo LinkedIn post search — noisier
+    - internet        # Web hiring search — broadest, noisiest
+    - wuzzuf        # Egypt — use Egypt/Cairo in locations
+    - bayt          # MENA
+    - gulftalent    # Gulf
 
 # --- Target Company Career Pages (optional) ---
 # Add companies whose Greenhouse or Lever ATS pages to scrape directly.
@@ -157,6 +160,4 @@ pipeline:
   skip_applications: false
   # Send digest every pipeline run regardless of email_digest_interval_days (or set FORCE_DIGEST=1 in env)
   force_digest: false
-  # Gmail credentials go in .env:
-  #   GMAIL_USER=you@gmail.com
-  #   GMAIL_APP_PASSWORD=xxxx xxxx xxxx xxxx
+  # Gmail: see .env.example (GMAIL_USER, GMAIL_APP_PASSWORD, NOTIFY_EMAIL)
