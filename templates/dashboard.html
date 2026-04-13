@@ -64,7 +64,7 @@
       <p style="font-size:0.85rem;color:var(--jf-muted);margin-top:0">Single board (profile keywords &amp; locations still apply).</p>
       <div class="quick-scrape" style="margin-top:0.65rem">
         {% for b in enabled_boards[:16] %}
-        <button type="button" class="outline secondary js-scrape-disables" onclick="scrapeJobs([{{ b|tojson }}])">{{ b }}</button>
+        <button type="button" class="outline secondary js-scrape-disables" onclick='scrapeJobs([{{ b|tojson }}])'>{{ b }}</button>
         {% endfor %}
       </div>
     </div>
@@ -139,8 +139,9 @@
       </div>
       <div class="btn-group">
         <a href="/job?url={{ job.url|urlencode }}" class="btn-sm outline" role="button">Details</a>
-        <button type="button" class="btn-sm outline" onclick="markApplied({{ job.url|tojson }})">Applied</button>
-        <button type="button" class="btn-sm outline secondary" onclick="hideJob({{ job.url|tojson }})">Hide</button>
+        <button type="button" class="btn-sm" style="background:#0f766e;border-color:#0f766e;color:#fff" onclick='generateApplication({{ job.url|tojson }}, this)'>Generate</button>
+        <button type="button" class="btn-sm outline" onclick='markApplied({{ job.url|tojson }})'>Applied</button>
+        <button type="button" class="btn-sm outline secondary" onclick='hideJob({{ job.url|tojson }})'>Hide</button>
       </div>
     </div>
     <div class="job-title">

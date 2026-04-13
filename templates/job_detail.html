@@ -33,12 +33,12 @@
 
     <div style="display:flex;gap:0.5rem;margin-bottom:1rem;flex-wrap:wrap">
         <a href="{{ job.url }}" target="_blank" role="button">Open Job Page</a>
-        <button type="button" class="outline" onclick="markApplied({{ job.url|tojson }})">Mark Applied</button>
-        <button type="button" class="outline secondary" onclick="hideJob({{ job.url|tojson }})">Hide</button>
+        <button type="button" class="outline" onclick='markApplied({{ job.url|tojson }})'>Mark Applied</button>
+        <button type="button" class="outline secondary" onclick='hideJob({{ job.url|tojson }})'>Hide</button>
         {% if application %}
             <a href="/applications" role="button" class="outline" style="background:#dcfce7;border-color:#16a34a;color:#16a34a">Application Ready</a>
         {% else %}
-            <button type="button" onclick="generateApplication({{ job.url|tojson }}, this)" style="background:#0f766e;border-color:#0f766e;color:#fff">Generate Application</button>
+            <button type="button" onclick='generateApplication({{ job.url|tojson }}, this)' style="background:#0f766e;border-color:#0f766e;color:#fff">Generate Application</button>
         {% endif %}
     </div>
 

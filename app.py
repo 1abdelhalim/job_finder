@@ -372,14 +372,16 @@ def create_app():
 
     @app.route("/api/job/apply", methods=["POST"])
     def api_apply():
-        url = request.json.get("url", "")
+        data = request.get_json(silent=True) or {}
+        url = (data.get("url") or "").strip()
         if url:
             mark_applied(url)
         return jsonify({"status": "ok"})
 
     @app.route("/api/job/hide", methods=["POST"])
     def api_hide():
-        url = request.json.get("url", "")
+        data = request.get_json(silent=True) or {}
+        url = (data.get("url") or "").strip()
         if url:
             mark_hidden(url)
         return jsonify({"status": "ok"})
@@ -483,8 +485,8 @@ def create_app():
         from llm import check_ollama_available
         from cv_customizer import application_slug, resolve_cv_dir, resolve_life_story_path
 
-        data = request.json or {}
-        url = data.get("url", "")
+        data = request.get_json(silent=True) or {}
+        url = (data.get("url") or "").strip()
         if not url:
             return jsonify({"status": "error", "error": "URL required"})
 

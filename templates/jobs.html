@@ -80,9 +80,9 @@
       </div>
       <div class="btn-group">
         <a href="/job?url={{ job.url|urlencode }}" class="btn-sm outline" role="button">Details</a>
-        <button type="button" class="btn-sm" style="background:#0f766e;border-color:#0f766e;color:#fff" onclick="generateApplication({{ job.url|tojson }}, this)">Generate</button>
-        <button type="button" class="btn-sm outline" onclick="markApplied({{ job.url|tojson }})">Applied</button>
-        <button type="button" class="btn-sm outline secondary" onclick="hideJob({{ job.url|tojson }})">Hide</button>
+        <button type="button" class="btn-sm" style="background:#0f766e;border-color:#0f766e;color:#fff" onclick='generateApplication({{ job.url|tojson }}, this)'>Generate</button>
+        <button type="button" class="btn-sm outline" onclick='markApplied({{ job.url|tojson }})'>Applied</button>
+        <button type="button" class="btn-sm outline secondary" onclick='hideJob({{ job.url|tojson }})'>Hide</button>
       </div>
     </div>
     <div class="job-title">

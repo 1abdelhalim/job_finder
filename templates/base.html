@@ -128,20 +128,48 @@
         }
 
         async function markApplied(url) {
-            await fetch('/api/job/apply', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({url}),
-            });
+            if (!url) {
+                alert('Missing job URL.');
+                return;
+            }
+            try {
+                const resp = await fetch('/api/job/apply', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({url}),
+                });
+                const data = await resp.json().catch(function () { return {}; });
+                if (!resp.ok || data.status !== 'ok') {
+                    alert('Could not mark as applied: ' + (data.error || data.message || resp.statusText || 'Unknown error'));
+                    return;
+                }
+            } catch (e) {
+                alert('Error: ' + e.message);
+                return;
+            }
             window.location.reload();
         }
 
         async function hideJob(url) {
-            await fetch('/api/job/hide', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({url}),
-            });
+            if (!url) {
+                alert('Missing job URL.');
+                return;
+            }
+            try {
+                const resp = await fetch('/api/job/hide', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({url}),
+                });
+                const data = await resp.json().catch(function () { return {}; });
+                if (!resp.ok || data.status !== 'ok') {
+                    alert('Could not hide job: ' + (data.error || data.message || resp.statusText || 'Unknown error'));
+                    return;
+                }
+            } catch (e) {
+                alert('Error: ' + e.message);
+                return;
+            }
             window.location.reload();
         }
 
