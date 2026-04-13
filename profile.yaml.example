@@ -117,6 +117,14 @@ remote_preferred: true
 #   - " intern"
 #   - "staff "
 
+# --- Title allowlist (optional, strict) ---
+# If non-empty, the job title must contain at least one of these substrings (after exclusions).
+# Use this to block generic "Software Engineer" / "AI Engineer" roles that still score high on embeddings.
+# title_must_contain_any:
+#   - "data engineer"
+#   - "data platform"
+#   - "business intelligence"
+
 # --- Location policy (optional hard filter) ---
 # When disabled (default), all scored jobs can be stored. When enabled, only jobs that
 # match at least one true branch are kept (remote worldwide OR Egypt OR visa sponsorship).

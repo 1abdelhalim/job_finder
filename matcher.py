@@ -150,6 +150,23 @@ def job_title_excluded(job: Job, profile: dict) -> bool:
     return False
 
 
+def job_title_must_contain_any(job: Job, profile: dict) -> bool:
+    """If profile has title_must_contain_any (non-empty), title must include at least one phrase."""
+    phrases = profile.get("title_must_contain_any")
+    if not phrases:
+        return True
+    t = job.title.lower()
+    for p in phrases:
+        if p is None:
+            continue
+        pl = p.lower()
+        if not pl.strip():
+            continue
+        if pl in t:
+            return True
+    return False
+
+
 def job_matches_location_policy(job: Job, profile: dict) -> bool:
     """When location_policy.enabled is true, keep jobs matching at least one allowed branch."""
     policy = profile.get("location_policy")
@@ -475,6 +492,11 @@ class JobMatcher:
         excluded_title = before_title - len(relevant)
         if excluded_title > 0:
             logger.info("Title pattern exclusions removed %d jobs", excluded_title)
+
+        before_must = len(relevant)
+        relevant = [j for j in relevant if job_title_must_contain_any(j, self.profile)]
+        if before_must - len(relevant) > 0:
+            logger.info("Title must-contain-any filter removed %d jobs", before_must - len(relevant))
 
         ai_jobs = relevant
 
