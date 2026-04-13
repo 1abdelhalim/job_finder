@@ -4,6 +4,7 @@ import json
 import logging
 import threading
 from pathlib import Path
+from typing import Optional
 from urllib.parse import urlencode
 
 import yaml
@@ -21,6 +22,16 @@ from storage import (
     get_applications, get_application_by_job,
     get_pipeline_runs,
 )
+
+
+def _short_ts(iso_val) -> Optional[str]:
+    """Format scraped_at / ISO-ish string for dashboard display."""
+    if not iso_val:
+        return None
+    s = str(iso_val).strip()
+    if len(s) >= 16:
+        return s[:16].replace("T", " · ")
+    return s
 
 logger = logging.getLogger(__name__)
 CONFIG_PATH = Path(__file__).parent / "profile.yaml"
@@ -51,6 +62,7 @@ def create_app():
         to_review = conn.execute(
             "SELECT COUNT(*) FROM jobs WHERE hidden = 0 AND applied = 0 AND match_score >= 0.4"
         ).fetchone()[0]
+        last_scraped_raw = conn.execute("SELECT MAX(scraped_at) FROM jobs").fetchone()[0]
 
         # Board distribution
         boards = conn.execute(
@@ -70,6 +82,9 @@ def create_app():
             j["match_details"] = json.loads(j.get("match_details", "{}"))
             jobs.append(j)
 
+        search_queries = profile.get("search", {}).get("queries") or []
+        recent_runs = get_pipeline_runs(5)
+
         return render_template(
             "dashboard.html",
             total=total,
@@ -78,9 +93,12 @@ def create_app():
             hidden_n=hidden_n,
             high_match=high_match,
             to_review=to_review,
+            last_scraped_display=_short_ts(last_scraped_raw),
             boards=[dict(b) for b in boards],
             jobs=jobs,
             enabled_boards=enabled_boards,
+            search_queries=search_queries[:8],
+            recent_runs=recent_runs,
         )
 
     @app.route("/jobs")
@@ -97,11 +115,14 @@ def create_app():
         search = request.args.get("q", "")
         sort = request.args.get("sort", "score")  # score, date, company
         hide_applied = request.args.get("hide_applied", "") == "1"
+        applied_only = request.args.get("applied_only", "") == "1"
 
         conn = get_db()
         where = ["hidden = 0"]
         params = []
-        if hide_applied:
+        if applied_only:
+            where.append("applied = 1")
+        elif hide_applied:
             where.append("applied = 0")
         if board_filter:
             where.append("board = ?")
@@ -178,6 +199,7 @@ def create_app():
             search=search,
             sort=sort,
             hide_applied=hide_applied,
+            applied_only=applied_only,
             prev_url=prev_url,
             next_url=next_url,
             boards=[b.value for b in JobBoard],

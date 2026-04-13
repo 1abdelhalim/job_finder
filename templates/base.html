@@ -89,6 +89,9 @@
                 statusEl.className = 'status-toast show';
                 statusEl.textContent = 'Scraping in progress… This may take a few minutes.';
             }
+            document.querySelectorAll('.js-scrape-disables').forEach(function (el) {
+                el.disabled = true;
+            });
             const body = {};
             if (boards) body.boards = boards;
             if (keywords) body.keywords = keywords;
@@ -119,6 +122,9 @@
                     statusEl.className = 'status-toast show error';
                     statusEl.textContent = 'Error: ' + e.message;
                 }
+                document.querySelectorAll('.js-scrape-disables').forEach(function (el) {
+                    el.disabled = false;
+                });
             }
         }
 

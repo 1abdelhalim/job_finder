@@ -6,28 +6,40 @@
   <p class="lead">Scrape sources, re-score against your profile, and work the list — same tools as the CLI, in one place.</p>
 </div>
 
+<div class="dash-meta">
+  <span>
+    <strong>Last ingest:</strong>
+    {% if last_scraped_display %}{{ last_scraped_display }}{% else %}— no jobs in DB yet{% endif %}
+  </span>
+  <span>
+    <strong>Profile:</strong> {{ search_queries|length }} search term{{ 's' if search_queries|length != 1 else '' }} · {{ enabled_boards|length }} board{{ 's' if enabled_boards|length != 1 else '' }}
+  </span>
+  <a href="javascript:location.reload()">Refresh page</a>
+  <a href="/jobs?sort=date">Latest listings →</a>
+</div>
+
 <div class="kpi-grid">
-  <div class="kpi-card accent">
+  <a href="/jobs?sort=score" class="kpi-card accent kpi-card-link" title="Open all visible jobs">
     <div class="val">{{ total }}</div>
     <div class="lbl">Visible jobs</div>
-  </div>
-  <div class="kpi-card">
+  </a>
+  <a href="/jobs?applied_only=1&amp;sort=score" class="kpi-card kpi-card-link" title="Jobs you marked applied">
     <div class="val">{{ applied }}</div>
     <div class="lbl">Applied</div>
-  </div>
-  <div class="kpi-card warn">
+  </a>
+  <a href="/jobs?min_score=40&amp;hide_applied=1&amp;sort=score" class="kpi-card warn kpi-card-link" title="Strong matches you have not applied to">
     <div class="val">{{ to_review }}</div>
     <div class="lbl">To review (≥40%)</div>
-  </div>
-  <div class="kpi-card accent">
+  </a>
+  <a href="/jobs?min_score=50&amp;sort=score" class="kpi-card accent kpi-card-link" title="Very strong matches">
     <div class="val">{{ high_match }}</div>
     <div class="lbl">Strong (≥50%)</div>
-  </div>
-  <div class="kpi-card">
+  </a>
+  <div class="kpi-card" title="Average match score across visible jobs">
     <div class="val">{{ "%.0f"|format(avg_score * 100) }}%</div>
     <div class="lbl">Avg match</div>
   </div>
-  <div class="kpi-card">
+  <div class="kpi-card" title="Hidden from lists (not deleted)">
     <div class="val">{{ hidden_n }}</div>
     <div class="lbl">Hidden</div>
   </div>
@@ -38,24 +50,36 @@
     <div class="panel">
       <h3>Actions</h3>
       <div class="action-toolbar">
-        <button type="button" class="primary" onclick="scrapeJobs()">Scrape all sources</button>
+        <button type="button" class="primary js-scrape-disables" onclick="scrapeJobs()">Scrape all sources</button>
         <button type="button" class="outline" onclick="rescoreJobs()">Re-score all</button>
         <a href="/pipeline" role="button" class="outline">Pipeline &amp; automation</a>
         <a href="/settings" role="button" class="outline secondary">Profile &amp; life story</a>
       </div>
-      <p style="font-size:0.8rem;color:var(--jf-muted);margin:0.75rem 0 0">Scrape uses queries &amp; boards from <code>profile.yaml</code>. Large runs can take several minutes.</p>
+      <p style="font-size:0.8rem;color:var(--jf-muted);margin:0.75rem 0 0">Scrape runs in the <strong>background</strong> — this page reloads in ~45s, or refresh manually. Uses <code>profile.yaml</code> queries, locations, and boards.</p>
       <div id="scrape-status" class="status-toast"></div>
     </div>
 
     <div class="panel">
       <h3>Quick source scrape</h3>
-      <p style="font-size:0.85rem;color:var(--jf-muted);margin-top:0">Run a single board (still respects your profile keywords &amp; locations).</p>
+      <p style="font-size:0.85rem;color:var(--jf-muted);margin-top:0">Single board (profile keywords &amp; locations still apply).</p>
       <div class="quick-scrape" style="margin-top:0.65rem">
         {% for b in enabled_boards[:16] %}
-        <button type="button" class="outline secondary" onclick="scrapeJobs([{{ b|tojson }}])">{{ b }}</button>
+        <button type="button" class="outline secondary js-scrape-disables" onclick="scrapeJobs([{{ b|tojson }}])">{{ b }}</button>
         {% endfor %}
       </div>
     </div>
+
+    {% if search_queries %}
+    <div class="panel">
+      <h3>Active search terms</h3>
+      <p style="font-size:0.8rem;color:var(--jf-muted);margin:0 0 0.5rem">From <code>search.queries</code> — edit in Settings or <code>profile.yaml</code>.</p>
+      <div class="query-chips-inline">
+        {% for q in search_queries %}
+        <span title="{{ q }}">{{ q[:42] }}{% if q|length > 42 %}…{% endif %}</span>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
 
     <div class="panel">
       <h3>Jump to filtered lists</h3>
@@ -64,6 +88,7 @@
         <a href="/jobs?min_score=60&amp;sort=score" role="button" class="jf-preset">≥60% matches</a>
         <a href="/jobs?sort=date" role="button" class="jf-preset">Newest first</a>
         <a href="/jobs?q=data+engineer&amp;sort=score" role="button" class="jf-preset">Search “data engineer”</a>
+        <a href="/jobs?applied_only=1" role="button" class="jf-preset">Applied history</a>
         <a href="/jobs" role="button" class="jf-preset">All jobs</a>
       </div>
     </div>
@@ -82,14 +107,36 @@
       <p style="color:var(--jf-muted);font-size:0.9rem;margin:0">No data yet — run a scrape.</p>
       {% endif %}
     </div>
+
     <div class="panel">
-      <h3>Enabled in profile</h3>
-      <p style="font-size:0.8rem;color:var(--jf-muted);margin:0 0 0.5rem">Boards from <code>search.boards</code>:</p>
+      <h3>Enabled boards</h3>
+      <p style="font-size:0.8rem;color:var(--jf-muted);margin:0 0 0.5rem"><code>search.boards</code></p>
       <div class="board-cloud">
         {% for b in enabled_boards %}
         <span class="board-badge board-{{ b }}">{{ b }}</span>
         {% endfor %}
       </div>
+    </div>
+
+    <div class="panel">
+      <h3>Recent pipeline runs</h3>
+      {% if recent_runs %}
+      {% for r in recent_runs %}
+      <div class="mini-run">
+        <div>
+          <span class="run-st {% if r.status == 'completed' or r.status == 'ok' %}ok{% elif r.status == 'failed' or r.status == 'error' %}err{% else %}run{% endif %}">{{ r.status or '—' }}</span>
+          {{ (r.started_at or '')[:16] }}
+        </div>
+        <div style="text-align:right;color:var(--jf-muted)">
+          {% if r.jobs_matched is not none %}{{ r.jobs_matched }} matched{% endif %}
+          {% if r.applications_created %} · {{ r.applications_created }} apps{% endif %}
+        </div>
+      </div>
+      {% endfor %}
+      <p style="margin:0.6rem 0 0;font-size:0.85rem"><a href="/pipeline">Full pipeline log →</a></p>
+      {% else %}
+      <p style="color:var(--jf-muted);font-size:0.9rem;margin:0">No runs recorded yet. Use <strong>Pipeline</strong> or the CLI.</p>
+      {% endif %}
     </div>
   </aside>
 </div>
@@ -97,11 +144,12 @@
 {% if total == 0 %}
 <div class="empty-state">
   <h3 style="color:#0f172a;margin-top:0">No jobs yet</h3>
-  <p>Run <strong>Scrape all sources</strong>, then refresh. For Adzuna / JSearch, add keys to <code>.env</code> (see <code>.env.example</code>).</p>
+  <p>Click <strong>Scrape all sources</strong>, wait ~1–2 minutes, then refresh. For Adzuna / JSearch, add keys to <code>.env</code> (see <code>.env.example</code>).</p>
 </div>
 {% else %}
 
 <h3 style="margin-top:1.5rem">Top matches</h3>
+<p style="font-size:0.88rem;color:var(--jf-muted);margin:-0.5rem 0 0.75rem">Highest scores among visible jobs (up to 20).</p>
 <div>
   {% for job in jobs %}
   <div class="job-card">

@@ -3,7 +3,9 @@
 {% block content %}
 <div class="jf-hero" style="margin-bottom:1rem">
   <h1 style="font-size:1.5rem">All jobs</h1>
-  <p class="lead">{{ total }} listing{{ 's' if total != 1 else '' }} match your filters</p>
+  <p class="lead">{{ total }} listing{{ 's' if total != 1 else '' }} match your filters
+    {% if applied_only %}<span style="display:inline-block;margin-left:0.35rem;padding:0.15rem 0.5rem;background:#ecfdf5;color:#047857;border-radius:6px;font-size:0.8rem">Applied only</span>{% endif %}
+  </p>
 </div>
 
 <form class="filters-panel" method="get" action="/jobs" id="jobs-filter-form">
@@ -50,9 +52,16 @@
     <button type="submit">Apply filters</button>
     <a href="/jobs" role="button" class="outline secondary">Clear</a>
     <label style="display:inline-flex;align-items:center;gap:0.4rem;margin:0;cursor:pointer">
-      <input type="checkbox" name="hide_applied" value="1" {% if hide_applied %}checked{% endif %}
-             onchange="this.form.submit()">
+      <input type="checkbox" name="hide_applied" value="1" id="hide-applied-cb"
+             {% if hide_applied and not applied_only %}checked{% endif %}
+             onchange="if(this.checked){document.getElementById('applied-only-cb').checked=false;}this.form.submit();">
       <span style="font-size:0.9rem">Hide applied</span>
+    </label>
+    <label style="display:inline-flex;align-items:center;gap:0.4rem;margin:0;cursor:pointer">
+      <input type="checkbox" name="applied_only" value="1" id="applied-only-cb"
+             {% if applied_only %}checked{% endif %}
+             onchange="if(this.checked){document.getElementById('hide-applied-cb').checked=false;}this.form.submit();">
+      <span style="font-size:0.9rem">Applied only</span>
     </label>
   </div>
 </form>
