@@ -4,7 +4,7 @@ import json
 import sqlite3
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Set
 
 from models import Job, JobBoard
 
@@ -265,6 +265,29 @@ def update_scores(jobs: List[Job], db_path: Path = DB_PATH):
         )
     conn.commit()
     conn.close()
+
+
+def zero_scores_for_jobs_not_in(ranked_urls: Set[str], db_path: Path = DB_PATH) -> int:
+    """Clear scores for rows not in the latest rank() output.
+
+    When relevance filters (e.g. data-engineering-only) or min_score drop jobs from
+    `ranked`, those rows would otherwise keep stale match_score values from an older
+    profile — `top` would still show them highly ranked.
+    """
+    conn = get_db(db_path)
+    rows = conn.execute("SELECT url FROM jobs WHERE hidden = 0").fetchall()
+    cleared = 0
+    for row in rows:
+        url = row["url"]
+        if url not in ranked_urls:
+            conn.execute(
+                "UPDATE jobs SET match_score = 0, match_details = ? WHERE url = ?",
+                (json.dumps({"note": "excluded_by_current_profile_filters"}), url),
+            )
+            cleared += 1
+    conn.commit()
+    conn.close()
+    return cleared
 
 
 def get_top_jobs(limit: int = 20, min_score: float = 0.0, db_path: Path = DB_PATH) -> list[dict]:

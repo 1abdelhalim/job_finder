@@ -15,7 +15,7 @@ from models import Job, JobBoard, SearchQuery
 from scrapers import SCRAPERS
 from matcher import JobMatcher
 from storage import (
-    get_db, save_jobs, update_scores, get_top_jobs,
+    get_db, save_jobs, update_scores, get_top_jobs, zero_scores_for_jobs_not_in,
     mark_applied, mark_hidden, DB_PATH,
     get_applications, get_application_by_job,
     get_pipeline_runs,
@@ -266,7 +266,8 @@ def create_app():
             ))
         ranked = matcher.rank(jobs)
         update_scores(ranked)
-        return jsonify({"status": "ok", "rescored": len(ranked)})
+        cleared = zero_scores_for_jobs_not_in({j.url for j in ranked})
+        return jsonify({"status": "ok", "rescored": len(ranked), "cleared_stale": cleared})
 
     @app.route("/api/job/apply", methods=["POST"])
     def api_apply():

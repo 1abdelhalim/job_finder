@@ -35,7 +35,7 @@ load_dotenv(Path(__file__).parent / ".env")
 from models import Job, JobBoard, SearchQuery
 from scrapers import SCRAPERS
 from matcher import JobMatcher
-from storage import save_jobs, update_scores, get_top_jobs, get_db
+from storage import save_jobs, update_scores, get_top_jobs, get_db, zero_scores_for_jobs_not_in
 
 CONFIG_PATH = Path(__file__).parent / "profile.yaml"
 
@@ -234,7 +234,11 @@ def cmd_match(args):
         ))
 
     ranked = matcher.rank(jobs, min_score=args.min_score)
+    ranked_urls = {j.url for j in ranked}
     update_scores(ranked)
+    cleared = zero_scores_for_jobs_not_in(ranked_urls)
+    if cleared:
+        logger.info("Cleared stale scores on %d jobs excluded by current filters", cleared)
     logger.info(f"Re-scored {len(ranked)} jobs")
     _print_jobs(ranked[:20])
 
