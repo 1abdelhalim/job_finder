@@ -57,7 +57,7 @@ def _scrape_all(profile: dict, max_per_query: int = 50) -> List[Job]:
     from concurrent.futures import ThreadPoolExecutor, as_completed
 
     search = profile.get("search", {})
-    board_names = search.get("boards", ["remotive", "adzuna", "linkedin"])
+    board_names = search.get("boards", ["remotive", "linkedin", "indeed", "arbeitnow"])
     boards = []
     for b in board_names:
         try:

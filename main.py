@@ -4,7 +4,7 @@ AI Apply — Automated job application pipeline.
 
 Usage:
     python main.py scrape                    # Scrape all boards with default config
-    python main.py scrape --boards remotive adzuna --max 30
+    python main.py scrape --boards remotive indeed --max 30
     python main.py match                     # Re-score all stored jobs
     python main.py top --limit 20            # Show top matches
     python main.py export -o jobs.json       # Export to JSON
@@ -64,7 +64,7 @@ def load_profile() -> dict:
 def build_queries(profile: dict) -> List[SearchQuery]:
     """Build search queries from profile config."""
     search = profile.get("search", {})
-    board_names = search.get("boards", ["remotive", "adzuna", "linkedin", "jsearch"])
+    board_names = search.get("boards", ["remotive", "linkedin", "indeed", "arbeitnow"])
     boards = []
     for b in board_names:
         try:

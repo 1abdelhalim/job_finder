@@ -57,15 +57,13 @@ search:
   job_type: ""           # "full-time", "part-time", "contract", or "" for all
   max_age_days: 14       # Skip jobs older than this many days
 
-  # All registered boards (scrapers/__init__.py). Comment out any you do not need.
-  # API keys: copy .env.example → .env (ADZUNA_*, RAPIDAPI_KEY for adzuna + jsearch).
+  # All registered boards (scrapers/__init__.py). No API keys required for the list below.
+  # Optional (need keys in .env): adzuna (ADZUNA_APP_ID + ADZUNA_APP_KEY), jsearch (RAPIDAPI_KEY).
   boards:
     - indeed        # Major boards (via python-jobspy)
     - glassdoor
     - google
     - linkedin
-    - adzuna        # Needs ADZUNA_APP_ID + ADZUNA_APP_KEY
-    - jsearch       # Needs RAPIDAPI_KEY (RapidAPI JSearch)
     - remotive      # Remote — REST API, no key
     - arbeitnow     # EU + remote — no key
     - themuse       # Curated tech — no key
@@ -82,8 +80,6 @@ search:
   # --- GitHub Actions / CI: fewer errors in logs ---
   # Reliable without extra keys: remotive, arbeitnow, himalayas, themuse, indeed, linkedin,
   #   greenhouse, lever (with valid slugs).
-  # Free API keys (easy signup): Adzuna — https://developer.adzuna.com (ADZUNA_APP_ID + KEY);
-  #   JSearch — https://rapidapi.com (RAPIDAPI_KEY; often free tier).
   # Often flaky on CI IPs: glassdoor, google (JobSpy), bayt (403), linkedin_posts, internet.
   # JobSpy: use "Egypt" not "Cairo" alone for Wuzzuf; avoid "Malta" etc. for LinkedIn country.
 
