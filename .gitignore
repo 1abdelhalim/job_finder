@@ -5,6 +5,9 @@
 .env
 .claude/
 
+# Python virtual environment — never commit (PyTorch wheels exceed GitHub 100 MB limit)
+venv/
+
 # User-specific content — fill these in locally, don't commit
 profile.yaml
 life-story.md
