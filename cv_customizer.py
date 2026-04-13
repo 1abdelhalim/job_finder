@@ -69,6 +69,14 @@ def _slugify(text: str) -> str:
     return text[:60]
 
 
+def application_slug(company: str, title: str) -> str:
+    """Stable slug for an application row / app directory (matches customize_cv_for_job)."""
+    slug = _slugify(f"{company}-{title}")
+    if not slug:
+        slug = _slugify(company or "unknown")
+    return slug
+
+
 def _extract_user_name(life_story: str) -> str:
     """Extract the user's full name from the life story."""
     for line in life_story.splitlines()[:20]:

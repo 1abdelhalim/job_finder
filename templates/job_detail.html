@@ -42,7 +42,18 @@
         {% endif %}
     </div>
 
-    {% if application %}
+    {% if application and application.status == 'generating' %}
+    <p style="margin:0 0 1rem;padding:0.75rem 1rem;background:#fef3c7;border:1px solid #fcd34d;border-radius:6px;color:#92400e">
+        Generating your CV and cover letter… This usually takes 1–3 minutes. You can leave this page open or refresh.
+    </p>
+    {% endif %}
+    {% if generation_error %}
+    <p style="margin:0 0 1rem;padding:0.75rem 1rem;background:#fee2e2;border:1px solid #fecaca;border-radius:6px;color:#991b1b">
+        <strong>Generation failed.</strong> {{ generation_error }}
+    </p>
+    {% endif %}
+
+    {% if application and application.status not in ('generating', 'failed') %}
     <details open>
         <summary>Generated Application ({{ application.status }})</summary>
         <div style="margin-top:0.5rem">

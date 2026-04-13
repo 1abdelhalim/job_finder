@@ -183,13 +183,49 @@
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({url}),
                 });
-                const data = await resp.json();
-                if (data.status === 'ok') {
-                    alert('Application generated! CV and cover letter ready.');
-                    window.location.reload();
-                } else {
-                    alert('Error: ' + (data.error || 'Unknown error'));
+                let data = {};
+                try {
+                    data = await resp.json();
+                } catch (parseErr) {
+                    alert('Server returned an invalid response (HTTP ' + resp.status + ').');
+                    return;
                 }
+                if (!resp.ok || data.status !== 'ok') {
+                    alert('Error: ' + (data.error || data.message || ('HTTP ' + resp.status)));
+                    return;
+                }
+                const msg = data.message || 'Generation started.';
+                if (!data.poll) {
+                    alert(msg);
+                    window.location.reload();
+                    return;
+                }
+                alert(msg + '\n\nThis page will refresh when the CV is ready (up to a few minutes).');
+                const deadline = Date.now() + 180000;
+                const pollMs = 4000;
+                const enc = encodeURIComponent(url);
+                const tick = async function () {
+                    try {
+                        const st = await fetch('/api/application-status?url=' + enc);
+                        const j = await st.json();
+                        if (j.app_status === 'failed' && j.error) {
+                            alert('Generation failed: ' + j.error);
+                            window.location.reload();
+                            return;
+                        }
+                        if (j.app_status === 'ready' || j.app_status === 'letter_generated' || j.app_status === 'cv_generated') {
+                            window.location.reload();
+                            return;
+                        }
+                    } catch (e) { /* keep polling */ }
+                    if (Date.now() < deadline) {
+                        setTimeout(tick, pollMs);
+                    } else {
+                        alert('Still working or timed out. Refresh this page in a minute to see results.');
+                        window.location.reload();
+                    }
+                };
+                setTimeout(tick, pollMs);
             } catch(e) {
                 alert('Error: ' + e.message);
             } finally {

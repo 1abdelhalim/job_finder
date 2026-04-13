@@ -2,6 +2,7 @@
 
 import json
 import logging
+import sqlite3
 import threading
 from pathlib import Path
 from typing import Optional
@@ -21,7 +22,22 @@ from storage import (
     mark_applied, mark_hidden, DB_PATH,
     get_applications, get_application_by_job,
     get_pipeline_runs,
+    create_application, update_application, delete_application,
 )
+
+
+def _app_error_from_row(application: Optional[dict]) -> Optional[str]:
+    """Human-readable error when application generation failed."""
+    if not application or application.get("status") != "failed":
+        return None
+    raw = application.get("form_answers_json") or "{}"
+    try:
+        data = json.loads(raw)
+        if isinstance(data, dict) and "__error__" in data:
+            return str(data["__error__"])
+    except (json.JSONDecodeError, TypeError):
+        pass
+    return "Generation failed. Check the server log for details."
 
 
 def _short_ts(iso_val) -> Optional[str]:
@@ -226,7 +242,13 @@ def create_app():
                 form_answers = json.loads(application.get("form_answers_json", "{}"))
             except (json.JSONDecodeError, TypeError):
                 pass
-        return render_template("job_detail.html", job=job, application=application, form_answers=form_answers)
+        return render_template(
+            "job_detail.html",
+            job=job,
+            application=application,
+            form_answers=form_answers,
+            generation_error=_app_error_from_row(application),
+        )
 
     @app.route("/settings")
     def settings():
@@ -418,9 +440,30 @@ def create_app():
             return "File not found", 404
         return send_file(filepath, as_attachment=True)
 
+    @app.route("/api/application-status")
+    def api_application_status():
+        """Poll generation progress for a job URL."""
+        url = request.args.get("url", "")
+        if not url:
+            return jsonify({"status": "error", "error": "url required"}), 400
+        app_row = get_application_by_job(url)
+        if not app_row:
+            return jsonify({"status": "ok", "app_status": "none", "error": None})
+        err = _app_error_from_row(app_row) if app_row.get("status") == "failed" else None
+        return jsonify(
+            {
+                "status": "ok",
+                "app_status": app_row.get("status", "unknown"),
+                "error": err,
+            }
+        )
+
     @app.route("/api/generate-application", methods=["POST"])
     def api_generate_application():
         """Generate customized CV + cover letter for a job (runs in background thread)."""
+        from llm import check_ollama_available
+        from cv_customizer import application_slug, resolve_cv_dir, resolve_life_story_path
+
         data = request.json or {}
         url = data.get("url", "")
         if not url:
@@ -433,55 +476,151 @@ def create_app():
             return jsonify({"status": "error", "error": "Job not found"})
 
         job = dict(row)
+        profile = load_profile()
+
+        existing = get_application_by_job(job["url"])
+        if existing:
+            st = existing.get("status") or ""
+            if st == "generating":
+                return jsonify(
+                    {
+                        "status": "error",
+                        "error": "Generation already in progress. Wait and refresh this page, or try again in a minute.",
+                    }
+                )
+            if st in ("ready", "letter_generated", "cv_generated"):
+                return jsonify(
+                    {
+                        "status": "error",
+                        "error": "Application already generated. Use the links on this page or open Applications.",
+                    }
+                )
+            if st == "failed":
+                delete_application(existing["id"])
+
+        if not check_ollama_available():
+            return jsonify(
+                {
+                    "status": "error",
+                    "error": "Ollama is not running. Start it (e.g. `ollama serve`), pull your model, then try again.",
+                }
+            )
+
+        cv_dir = resolve_cv_dir(profile)
+        life_path = resolve_life_story_path(cv_dir)
+        try:
+            if not life_path.exists() or not life_path.read_text(encoding="utf-8").strip():
+                return jsonify(
+                    {
+                        "status": "error",
+                        "error": f"life-story.md is missing or empty. Expected at: {life_path}",
+                    }
+                )
+        except OSError as e:
+            return jsonify({"status": "error", "error": f"Cannot read life-story: {e}"})
+
+        slug = application_slug(job.get("company") or "", job.get("title") or "")
+        try:
+            app_id = create_application(job["url"], slug, status="generating")
+        except sqlite3.IntegrityError:
+            return jsonify(
+                {
+                    "status": "error",
+                    "error": "An application record already exists for this job. Refresh the page.",
+                }
+            )
 
         def generate():
             try:
                 from cv_customizer import customize_cv_for_job, analyze_job, LIFE_STORY_PATH
                 from cover_letter import create_cover_letter
                 from form_answers import generate_form_answers as gen_answers
-                from storage import create_application, update_application
 
-                profile = load_profile()
-                model = profile.get("pipeline", {}).get("ollama_model", "qwen3.5:9b")
+                profile_inner = load_profile()
+                model_inner = profile_inner.get("pipeline", {}).get("ollama_model", "qwen3.5:9b")
 
                 result = customize_cv_for_job(
-                    job_url=job["url"], title=job["title"],
-                    company=job["company"], location=job.get("location", ""),
-                    description=job.get("description", ""), model=model,
+                    job_url=job["url"],
+                    title=job["title"],
+                    company=job["company"],
+                    location=job.get("location", ""),
+                    description=job.get("description", ""),
+                    model=model_inner,
+                    profile=profile_inner,
                 )
                 if not result:
+                    update_application(
+                        app_id,
+                        status="failed",
+                        form_answers_json=json.dumps(
+                            {
+                                "__error__": "CV or PDF step failed (Ollama, LaTeX/pdflatex, or life-story). Check the server log."
+                            }
+                        ),
+                    )
                     return
 
-                app_id = create_application(job["url"], result["slug"])
                 update_application(app_id, status="cv_generated", cv_pdf_path=result["cv_pdf_path"])
 
-                life_story = LIFE_STORY_PATH.read_text(encoding="utf-8") if LIFE_STORY_PATH.exists() else ""
-                job_analysis = analyze_job(job.get("description", ""), job["title"], job["company"], model=model)
+                life_story = (
+                    LIFE_STORY_PATH.read_text(encoding="utf-8")
+                    if LIFE_STORY_PATH.exists()
+                    else ""
+                )
+                job_analysis = analyze_job(
+                    job.get("description", ""),
+                    job["title"],
+                    job["company"],
+                    model=model_inner,
+                )
 
                 cl_path = create_cover_letter(
-                    app_dir=result["app_dir"], title=job["title"],
-                    company=job["company"], location=job.get("location", ""),
+                    app_dir=result["app_dir"],
+                    title=job["title"],
+                    company=job["company"],
+                    location=job.get("location", ""),
                     description=job.get("description", ""),
-                    life_story=life_story, job_analysis=job_analysis, model=model,
+                    life_story=life_story,
+                    job_analysis=job_analysis,
+                    model=model_inner,
                 )
                 if cl_path:
                     update_application(app_id, status="letter_generated", cover_letter_pdf_path=cl_path)
 
                 answers = gen_answers(
-                    life_story=life_story, title=job["title"],
-                    company=job["company"], description=job.get("description", ""),
-                    job_analysis=job_analysis, model=model,
+                    life_story=life_story,
+                    title=job["title"],
+                    company=job["company"],
+                    description=job.get("description", ""),
+                    job_analysis=job_analysis,
+                    model=model_inner,
                 )
                 if answers:
                     update_application(app_id, status="ready", form_answers_json=json.dumps(answers))
+                elif cl_path:
+                    update_application(app_id, status="ready")
 
                 logger.info("Application generated for %s at %s", job["title"], job["company"])
             except Exception as e:
                 logger.error("Application generation failed: %s", e)
+                try:
+                    update_application(
+                        app_id,
+                        status="failed",
+                        form_answers_json=json.dumps({"__error__": str(e)}),
+                    )
+                except Exception:
+                    pass
 
         thread = threading.Thread(target=generate)
         thread.start()
-        return jsonify({"status": "ok", "message": "Generating application in background..."})
+        return jsonify(
+            {
+                "status": "ok",
+                "message": "Generation started. This usually takes 1–3 minutes.",
+                "poll": True,
+            }
+        )
 
     def _fetch_and_score(url: str, location: str = "") -> dict:
         """Fetch a job URL, extract description, score against profile. Returns score dict."""

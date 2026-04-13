@@ -73,14 +73,19 @@ def get_db(db_path: Path = DB_PATH) -> sqlite3.Connection:
 
 # --- Application CRUD ---
 
-def create_application(job_url: str, slug: str, db_path: Path = DB_PATH) -> int:
+def create_application(
+    job_url: str,
+    slug: str,
+    db_path: Path = DB_PATH,
+    status: str = "pending",
+) -> int:
     """Create a new application record. Returns the application ID."""
     conn = get_db(db_path)
     now = datetime.now().isoformat()
     cursor = conn.execute(
         """INSERT INTO applications (job_url, slug, status, created_at, updated_at)
-           VALUES (?, ?, 'pending', ?, ?)""",
-        (job_url, slug, now, now),
+           VALUES (?, ?, ?, ?, ?)""",
+        (job_url, slug, status, now, now),
     )
     app_id = cursor.lastrowid
     conn.commit()
@@ -132,6 +137,13 @@ def get_application_by_job(job_url: str, db_path: Path = DB_PATH) -> Optional[Di
     ).fetchone()
     conn.close()
     return dict(row) if row else None
+
+
+def delete_application(app_id: int, db_path: Path = DB_PATH) -> None:
+    conn = get_db(db_path)
+    conn.execute("DELETE FROM applications WHERE id = ?", (app_id,))
+    conn.commit()
+    conn.close()
 
 
 # --- Pipeline Run Logging ---
