@@ -139,8 +139,13 @@ def job_title_excluded(job: Job, profile: dict) -> bool:
         return False
     t = job.title.lower()
     for p in patterns:
-        pl = (p or "").strip().lower()
-        if pl and pl in t:
+        if p is None:
+            continue
+        # Do not strip(): patterns like " intern" rely on a leading space to avoid false positives.
+        pl = p.lower()
+        if not pl.strip():
+            continue
+        if pl in t:
             return True
     return False
 

@@ -107,11 +107,15 @@ remote_preferred: true
 
 # --- Title exclusions (optional) ---
 # If the job title contains any of these substrings, it is dropped after the DE/ML relevance
-# step (helps remove Data Scientist / ML engineer / full-stack noise when descriptions mention SQL).
+# step. Patterns are lowercased but not trimmed — use a leading space (e.g. " intern") to
+# match the word "intern" without matching "internal".
 # title_patterns_excluded:
 #   - "machine learning engineer"
 #   - "data scientist"
 #   - "full stack"
+#   - " devops"
+#   - " intern"
+#   - "staff "
 
 # --- Location policy (optional hard filter) ---
 # When disabled (default), all scored jobs can be stored. When enabled, only jobs that
