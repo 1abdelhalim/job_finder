@@ -571,7 +571,14 @@ def create_app():
             return jsonify(
                 {
                     "status": "error",
-                    "error": "Ollama is not running. Start it (e.g. `ollama serve`), pull your model, then try again.",
+                    "error": (
+                        "Ollama is not usable at the configured URL: nothing responds with Ollama's "
+                        "generation API. Run `ollama serve` (or start the Ollama app), then "
+                        "`ollama pull` your pipeline.ollama_model. If `ollama serve` says 'address "
+                        "already in use', Ollama may already be running — run `ollama pull <model>` "
+                        "(your models list was empty). If another program uses port 11434, run "
+                        "`lsof -iTCP:11434 -sTCP:LISTEN` or set OLLAMA_BASE in .env to your Ollama URL."
+                    ),
                 }
             )
 

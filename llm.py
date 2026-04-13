@@ -82,12 +82,43 @@ def recommend_model() -> str:
 
 
 def check_ollama_available() -> bool:
-    """Check if Ollama server is running and responsive."""
+    """Check that Ollama (or compatible) exposes at least one generation endpoint."""
     base = ollama_base()
     try:
-        r = requests.get(f"{base}/api/tags", timeout=5)
-        return r.status_code == 200
+        v = requests.get(f"{base}/api/version", timeout=5)
+        if v.status_code == 200:
+            return True
+        t = requests.get(f"{base}/api/tags", timeout=5)
+        if t.status_code != 200:
+            return False
+        # Something answers /api/tags — ensure a generation route exists (not a stub)
+        probes = (
+            (
+                "/api/chat",
+                {
+                    "model": "__probe__",
+                    "messages": [{"role": "user", "content": "."}],
+                    "stream": False,
+                },
+            ),
+            ("/api/generate", {"model": "__probe__", "prompt": ".", "stream": False}),
+            (
+                "/v1/chat/completions",
+                {
+                    "model": "__probe__",
+                    "messages": [{"role": "user", "content": "."}],
+                    "stream": False,
+                },
+            ),
+        )
+        for path, payload in probes:
+            p = requests.post(f"{base}{path}", json=payload, timeout=8)
+            if p.status_code != 404:
+                return True
+        return False
     except requests.ConnectionError:
+        return False
+    except requests.RequestException:
         return False
 
 
@@ -111,6 +142,18 @@ def _parse_ollama_body(data: dict) -> str:
         msg = data.get("message") or {}
         return (msg.get("content") or "").strip()
     return (data.get("response") or "").strip()
+
+
+def _parse_openai_compat(data: dict) -> str:
+    """OpenAI-style /v1/chat/completions response."""
+    try:
+        choices = data.get("choices") or []
+        if not choices:
+            return ""
+        msg = choices[0].get("message") or {}
+        return (msg.get("content") or "").strip()
+    except (IndexError, TypeError, AttributeError):
+        return ""
 
 
 def generate(
@@ -164,14 +207,44 @@ def generate(
     logger.info("LLM generate: model=%s, prompt_len=%d, base=%s", model, len(prompt), base)
     start = time.time()
 
+    oa_messages = []
+    if system:
+        oa_messages.append({"role": "system", "content": system})
+    oa_messages.append({"role": "user", "content": prompt})
+    openai_payload = {
+        "model": model,
+        "messages": oa_messages,
+        "stream": False,
+        "temperature": temperature,
+        "max_tokens": max_tokens,
+    }
+
     try:
         r = requests.post(f"{base}/api/chat", json=chat_payload, timeout=timeout)
         if r.status_code == 404:
             logger.info("Ollama /api/chat returned 404; trying /api/generate")
             r = requests.post(f"{base}/api/generate", json=gen_payload, timeout=timeout)
+        if r.status_code == 404:
+            logger.info("Ollama /api/generate returned 404; trying OpenAI-compatible /v1/chat/completions")
+            r = requests.post(
+                f"{base}/v1/chat/completions",
+                json=openai_payload,
+                timeout=timeout,
+            )
+        if r.status_code == 404:
+            raise RuntimeError(
+                "No Ollama LLM routes on this URL (/api/chat, /api/generate, /v1/chat/completions "
+                "all returned 404). Another process may be bound to this port, or it is not Ollama. "
+                "Run: lsof -iTCP:11434 -sTCP:LISTEN  then stop the impostor or set OLLAMA_BASE to "
+                "your real Ollama. If Ollama is correct: ollama pull <model> (your profile "
+                "pipeline.ollama_model)."
+            )
         r.raise_for_status()
         result = r.json()
-        text = _parse_ollama_body(result)
+        if "choices" in result:
+            text = _parse_openai_compat(result)
+        else:
+            text = _parse_ollama_body(result)
         elapsed = time.time() - start
         logger.info("LLM response: %d chars in %.1fs", len(text), elapsed)
         return text.strip()
