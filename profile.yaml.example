@@ -97,6 +97,20 @@ preferred_locations:
 
 remote_preferred: true
 
+# --- Career track (optional) ---
+# Set to "data_engineering" to include data / analytics engineering roles that are not
+# caught by the default AI/ML/CV keyword prefilter. Omit for ML-only matching.
+# career_track: "data_engineering"
+
+# --- Location policy (optional hard filter) ---
+# When disabled (default), all scored jobs can be stored. When enabled, only jobs that
+# match at least one true branch are kept (remote worldwide OR Egypt OR visa sponsorship).
+# location_policy:
+#   enabled: false
+#   remote_worldwide: true
+#   egypt: true
+#   visa_sponsorship: true
+
 # --- Scoring Weights ---
 # These control how the match score is calculated.
 # title + skills + semantic + location + experience should sum to ~0.90
@@ -113,9 +127,13 @@ pipeline:
   auto_apply_threshold: 0.50   # Min score to trigger CV/cover letter generation
   max_applications_per_run: 10  # Max automated applications per pipeline run
   email_recipient: "you@example.com"   # Where to send job digest emails
-  email_digest_interval_days: 2        # How often to send digest
+  email_digest_interval_days: 1        # Use 1 for daily digests; digest obeys should_send_digest unless force_digest
   cv_dir: "./cv"               # Where your LaTeX CV files live (relative to project root, or absolute)
   ollama_model: "qwen3.5:9b"   # Set by setup_ollama.sh based on your hardware
+  # CI / GitHub Actions: skip Ollama and only scrape + match + email (set true or use --skip-applications)
+  skip_applications: false
+  # Send digest every pipeline run regardless of email_digest_interval_days (or set FORCE_DIGEST=1 in env)
+  force_digest: false
   # Gmail credentials go in .env:
   #   GMAIL_USER=you@gmail.com
   #   GMAIL_APP_PASSWORD=xxxx xxxx xxxx xxxx

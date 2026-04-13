@@ -300,6 +300,8 @@ def cmd_pipeline(args):
         dry_run=args.dry_run,
         max_applications=args.max,
         threshold=args.threshold,
+        skip_applications=getattr(args, "skip_applications", False),
+        force_digest=getattr(args, "force_digest", False),
     )
     print(f"\nPipeline complete: {stats}")
 
@@ -573,6 +575,16 @@ def main():
     p_pipeline.add_argument("--dry-run", action="store_true", help="Preview without executing")
     p_pipeline.add_argument("--max", type=int, default=10, help="Max applications per run")
     p_pipeline.add_argument("--threshold", type=float, default=0.5, help="Min score to process")
+    p_pipeline.add_argument(
+        "--skip-applications",
+        action="store_true",
+        help="Scrape, match, email only — no Ollama CV/cover letter (for CI)",
+    )
+    p_pipeline.add_argument(
+        "--force-digest",
+        action="store_true",
+        help="Send digest email even if email_digest_interval_days has not elapsed",
+    )
     p_pipeline.set_defaults(func=cmd_pipeline)
 
     # daemon

@@ -1,0 +1,68 @@
+# Daily scrape → match → digest email (no Ollama). Requires repository secrets — see comments below.
+name: Daily job digest
+
+on:
+  schedule:
+    - cron: "0 9 * * *" # 09:00 UTC every day
+  workflow_dispatch:
+
+concurrency:
+  group: daily-jobs-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      GMAIL_USER: ${{ secrets.GMAIL_USER }}
+      GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+      FORCE_DIGEST: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Cache Hugging Face hub
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: hf-${{ runner.os }}-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            hf-${{ runner.os }}-
+
+      - name: Cache SQLite jobs database
+        uses: actions/cache@v4
+        with:
+          path: jobs.db
+          key: jobs-db-${{ runner.os }}-${{ hashFiles('requirements.txt') }}-v1
+          restore-keys: |
+            jobs-db-${{ runner.os }}-
+
+      # Required secrets: PROFILE_YAML (full file). LIFE_STORY_MD optional but recommended.
+      # GMAIL_USER + GMAIL_APP_PASSWORD for SMTP (same as local .env).
+      - name: Write profile and life story from secrets
+        env:
+          PROFILE_YAML: ${{ secrets.PROFILE_YAML }}
+          LIFE_STORY_MD: ${{ secrets.LIFE_STORY_MD }}
+        run: |
+          if [ -z "$PROFILE_YAML" ]; then
+            echo "::error::Add repository secret PROFILE_YAML (contents of profile.yaml)"
+            exit 1
+          fi
+          printf '%s\n' "$PROFILE_YAML" > profile.yaml
+          if [ -n "$LIFE_STORY_MD" ]; then
+            printf '%s\n' "$LIFE_STORY_MD" > life-story.md
+          else
+            echo "# (empty — set LIFE_STORY_MD secret for better matching)" > life-story.md
+          fi
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run pipeline
+        run: python main.py pipeline --skip-applications --force-digest

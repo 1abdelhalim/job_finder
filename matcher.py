@@ -9,7 +9,9 @@ from pathlib import Path
 
 from models import Job
 
-LIFE_STORY_PATH = Path(__file__).parent.parent / "CV" / "life-story.md"
+from cv_customizer import CV_DIR, resolve_life_story_path
+
+LIFE_STORY_PATH = resolve_life_story_path(CV_DIR)
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +58,19 @@ AI_KEYWORDS = {
     "medical imaging", "speech recognition", "recommender system",
 }
 
+# Data engineering / analytics — used when profile has career_track: data_engineering
+DATA_ENGINEERING_KEYWORDS = {
+    "data engineer", "data engineering", "analytics engineer", "etl", "elt",
+    "data warehouse", "data warehousing", "data pipeline", "data pipelines",
+    "dbt", "snowflake", "databricks", "apache spark", "pyspark", "spark",
+    "big data", "hadoop", "hive", "airflow", "prefect", "dagster", "data lake",
+    "lakehouse", "delta lake", "iceberg", "kafka", "data platform",
+    "data infrastructure", "business intelligence", "bi developer", "bi engineer",
+    "power bi", "tableau", "looker", "data integration", "data modeling",
+    "fivetran", "stitch", "matillion", "data quality", "data governance",
+    "data mesh", "streaming data", "redshift", "bigquery", "synapse",
+}
+
 # Keywords that indicate a strong specialty match for Ahmed's specific background.
 # Jobs containing these score higher than generic ML/AI roles.
 SPECIALTY_KEYWORDS = {
@@ -84,6 +99,69 @@ def is_ai_related(job: Job) -> bool:
     """Check if a job is AI/ML/CV related based on title and description."""
     text = f"{job.title} {job.description}".lower()
     return any(kw in text for kw in AI_KEYWORDS)
+
+
+def is_data_engineering_related(job: Job) -> bool:
+    """Check if a job is data engineering / analytics engineering oriented."""
+    text = f"{job.title} {job.description}".lower()
+    return any(kw in text for kw in DATA_ENGINEERING_KEYWORDS)
+
+
+def is_job_relevant(job: Job, profile: dict) -> bool:
+    """Include job in matching if it fits AI/ML track or optional data-engineering track."""
+    if is_ai_related(job):
+        return True
+    track = (profile.get("career_track") or "").strip().lower()
+    if track in ("data_engineering", "data_engineer", "de"):
+        return is_data_engineering_related(job)
+    return False
+
+
+def _text_matches_any(text: str, patterns: list[str]) -> bool:
+    return any(p in text for p in patterns)
+
+
+def job_matches_location_policy(job: Job, profile: dict) -> bool:
+    """When location_policy.enabled is true, keep jobs matching at least one allowed branch."""
+    policy = profile.get("location_policy")
+    if not policy or not policy.get("enabled", False):
+        return True
+
+    want_remote = policy.get("remote_worldwide", True)
+    want_egypt = policy.get("egypt", True)
+    want_visa = policy.get("visa_sponsorship", True)
+    if not (want_remote or want_egypt or want_visa):
+        logger.warning(
+            "location_policy.enabled but no branches true (remote/egypt/visa) — allowing all jobs"
+        )
+        return True
+
+    text = f"{job.location} {job.description}".lower()
+
+    remote_patterns = [
+        "remote", "work from home", "work-from-home", "wfh", "fully remote",
+        "100% remote", "distributed team", "work from anywhere", "anywhere in the world",
+        "worldwide", "globally", "telecommute", "location flexible", "fully distributed",
+    ]
+    egypt_patterns = [
+        "egypt", "cairo", "alexandria", "giza", "maadi", "nasr city", "new cairo",
+        "6th of october", "october city", "helwan", "sharm el", "hurghada",
+        "mansoura", "tanta", "zagazig", "ismailia", "suez", "luxor", "aswan",
+    ]
+    visa_patterns = [
+        "visa sponsorship", "sponsor visa", "will sponsor", "h1b", "h-1b", "h1-b",
+        "work permit", "relocation assistance", "relocation package", "relocation support",
+        "international applicants welcome", "sponsor your", "immigration support",
+        "employment visa", "visa support",
+    ]
+
+    if want_remote and _text_matches_any(text, remote_patterns):
+        return True
+    if want_egypt and _text_matches_any(text, egypt_patterns):
+        return True
+    if want_visa and _text_matches_any(text, visa_patterns):
+        return True
+    return False
 
 
 def tokenize(text: str) -> list[str]:
@@ -357,12 +435,13 @@ class JobMatcher:
         return 0.0
 
     def rank(self, jobs: list[Job], min_score: float = 0.0) -> list[Job]:
-        """Score, filter non-AI jobs, and return sorted by score (descending), then date."""
-        # Filter out non-AI/ML/CV jobs
-        ai_jobs = [j for j in jobs if is_ai_related(j)]
-        filtered_count = len(jobs) - len(ai_jobs)
+        """Score, filter irrelevant jobs, apply optional location policy, return sorted."""
+        relevant = [j for j in jobs if is_job_relevant(j, self.profile)]
+        filtered_count = len(jobs) - len(relevant)
         if filtered_count > 0:
-            logger.info(f"Filtered out {filtered_count} non-AI jobs")
+            logger.info("Filtered out %d jobs (not matching AI/ML or career_track)", filtered_count)
+
+        ai_jobs = relevant
 
         # Batch encode job texts for efficiency
         model = _get_model()
@@ -395,5 +474,11 @@ class JobMatcher:
         ranked = sorted(ai_jobs, key=lambda j: (j.match_score, _date_key(j)), reverse=True)
         if min_score > 0:
             ranked = [j for j in ranked if j.match_score >= min_score]
+
+        before_loc = len(ranked)
+        ranked = [j for j in ranked if job_matches_location_policy(j, self.profile)]
+        excluded_loc = before_loc - len(ranked)
+        if excluded_loc > 0:
+            logger.info("Location policy excluded %d jobs", excluded_loc)
 
         return ranked

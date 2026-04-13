@@ -126,10 +126,15 @@ def run_pipeline(
     max_applications: int = 10,
     threshold: float = 0.5,
     model: str = "qwen3.5:9b",
+    skip_applications: bool = False,
+    force_digest: bool = False,
 ) -> Dict:
     """Run one full pipeline cycle.
 
     Returns dict with stats: jobs_scraped, jobs_matched, applications_created, emails_sent.
+
+    If skip_applications is True (e.g. GitHub Actions without Ollama), only scrape, match,
+    save jobs, and send digest — no CV/cover letter/form generation.
     """
     if profile is None:
         profile = load_profile()
@@ -140,6 +145,14 @@ def run_pipeline(
     model = pipeline_config.get("ollama_model", model)
     recipient = pipeline_config.get("email_recipient", "ahmed.tawfik96@gmail.com")
     interval_days = pipeline_config.get("email_digest_interval_days", 2)
+    skip_applications = bool(
+        skip_applications or pipeline_config.get("skip_applications", False)
+    )
+    force_digest = bool(
+        force_digest
+        or pipeline_config.get("force_digest", False)
+        or os.environ.get("FORCE_DIGEST", "").strip().lower() in ("1", "true", "yes")
+    )
 
     run_id = start_pipeline_run()
     stats = {
@@ -166,16 +179,20 @@ def run_pipeline(
 
         # --- Step 2: Get top matches for application ---
         logger.info("=== Pipeline Step 2: Selecting top matches ===")
-        top_jobs = get_top_jobs(limit=max_applications * 2, min_score=threshold)
         candidates = []
-        for job in top_jobs:
-            existing = get_application_by_job(job["url"])
-            if not existing and job.get("description"):
-                candidates.append(job)
-            if len(candidates) >= max_applications:
-                break
-        stats["jobs_matched"] = len(candidates)
-        logger.info("Found %d jobs to process (score >= %.2f)", len(candidates), threshold)
+        if not skip_applications:
+            top_jobs = get_top_jobs(limit=max_applications * 2, min_score=threshold)
+            for job in top_jobs:
+                existing = get_application_by_job(job["url"])
+                if not existing and job.get("description"):
+                    candidates.append(job)
+                if len(candidates) >= max_applications:
+                    break
+            stats["jobs_matched"] = len(candidates)
+            logger.info("Found %d jobs to process (score >= %.2f)", len(candidates), threshold)
+        else:
+            stats["jobs_matched"] = 0
+            logger.info("Skipping CV/application generation (--skip-applications)")
 
         # --- Step 3: Generate applications ---
         logger.info("=== Pipeline Step 3: Generating applications ===")
@@ -183,6 +200,8 @@ def run_pipeline(
         if LIFE_STORY_PATH.exists():
             life_story = LIFE_STORY_PATH.read_text(encoding="utf-8")
 
+        if skip_applications:
+            log_lines.append("Skipped application generation (CI / email-only mode)")
         for i, job in enumerate(candidates):
             if _shutdown:
                 logger.info("Shutdown requested, stopping pipeline")
@@ -275,7 +294,8 @@ def run_pipeline(
 
         # --- Step 4: Send email digest ---
         logger.info("=== Pipeline Step 4: Email digest ===")
-        if should_send_digest(interval_days) and not dry_run:
+        digest_due = force_digest or should_send_digest(interval_days)
+        if digest_due and not dry_run:
             last_email = get_last_email_sent()
             since = last_email["sent_at"] if last_email else "2000-01-01T00:00:00"
             new_jobs = get_new_jobs_since(since, min_score=threshold)
@@ -288,7 +308,12 @@ def run_pipeline(
             else:
                 logger.info("No new jobs since last digest")
         else:
-            logger.info("Digest not due yet or dry run")
+            if dry_run:
+                logger.info("Digest skipped (dry run)")
+            elif not digest_due:
+                logger.info("Digest not due yet (interval %s days); use --force-digest or FORCE_DIGEST=1", interval_days)
+            else:
+                logger.info("Digest skipped")
 
         # --- Done ---
         finish_pipeline_run(
