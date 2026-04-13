@@ -5,7 +5,7 @@
 
 <div class="stats-grid">
     <div class="stat-card">
-        <div class="value">{{ runs|length }}</div>
+        <div class="value">{{ total_runs }}</div>
         <div class="label">Total Runs</div>
     </div>
     <div class="stat-card">
@@ -75,40 +75,6 @@
     </div>
 </details>
 
-<!-- Pipeline Run History -->
-<h3 style="margin-top:1.5rem">Run History</h3>
-{% if runs %}
-<table role="grid">
-    <thead>
-        <tr>
-            <th>Date</th>
-            <th>Status</th>
-            <th>Scraped</th>
-            <th>Matched</th>
-            <th>Applications</th>
-            <th>Emails</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for run in runs %}
-        <tr>
-            <td>{{ run.started_at[:16] if run.started_at else 'N/A' }}</td>
-            <td>
-                <span style="font-weight:600;color:{% if run.status == 'completed' %}#16a34a{% elif run.status == 'failed' %}#dc2626{% else %}#d97706{% endif %}">
-                    {{ run.status }}
-                </span>
-            </td>
-            <td>{{ run.jobs_scraped }}</td>
-            <td>{{ run.jobs_matched }}</td>
-            <td>{{ run.applications_created }}</td>
-            <td>{{ run.emails_sent }}</td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
-{% else %}
-<p style="color:#6b7280">No pipeline runs yet. Click "Run Pipeline Now" to start.</p>
-{% endif %}
 {% endblock %}
 
 {% block scripts %}

@@ -114,27 +114,6 @@
         {% endfor %}
       </div>
     </div>
-
-    <div class="panel">
-      <h3>Recent pipeline runs</h3>
-      {% if recent_runs %}
-      {% for r in recent_runs %}
-      <div class="mini-run">
-        <div>
-          <span class="run-st {% if r.status == 'completed' or r.status == 'ok' %}ok{% elif r.status == 'failed' or r.status == 'error' %}err{% else %}run{% endif %}">{{ r.status or '—' }}</span>
-          {{ (r.started_at or '')[:16] }}
-        </div>
-        <div style="text-align:right;color:var(--jf-muted)">
-          {% if r.jobs_matched is not none %}{{ r.jobs_matched }} matched{% endif %}
-          {% if r.applications_created %} · {{ r.applications_created }} apps{% endif %}
-        </div>
-      </div>
-      {% endfor %}
-      <p style="margin:0.6rem 0 0;font-size:0.85rem"><a href="/pipeline">Full pipeline log →</a></p>
-      {% else %}
-      <p style="color:var(--jf-muted);font-size:0.9rem;margin:0">No runs recorded yet. Use <strong>Pipeline</strong> or the CLI.</p>
-      {% endif %}
-    </div>
   </aside>
 </div>
 

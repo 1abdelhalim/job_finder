@@ -39,7 +39,6 @@ DEFAULT_UI: Dict[str, Any] = {
     ),
     "dashboard_footer_label": "Browse all filtered jobs",
     "dashboard_search_queries_limit": 8,
-    "pipeline_runs_limit": 5,
     "jobs_page_title": "All jobs",
     "applications_blurb": "Auto-generated CVs, cover letters, and form answers for matched jobs.",
 }
@@ -81,11 +80,8 @@ def get_ui_config(profile: Dict[str, Any]) -> Dict[str, Any]:
     merged["nav_top_matches_pct"] = _clamp_pct(
         merged.get("nav_top_matches_pct"), DEFAULT_UI["nav_top_matches_pct"]
     )
-    for key in (
-        "dashboard_search_queries_limit",
-        "pipeline_runs_limit",
-    ):
-        merged[key] = max(1, min(100, int(merged.get(key) or DEFAULT_UI[key])))
+    key = "dashboard_search_queries_limit"
+    merged[key] = max(1, min(100, int(merged.get(key) or DEFAULT_UI[key])))
     for key in (
         "brand_name",
         "tagline",

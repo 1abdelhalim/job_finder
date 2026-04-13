@@ -112,7 +112,6 @@ def create_app():
 
         search_queries = profile.get("search", {}).get("queries") or []
         q_limit = ui.get("dashboard_search_queries_limit", 8)
-        recent_runs = get_pipeline_runs(ui.get("pipeline_runs_limit", 5))
 
         return render_template(
             "dashboard.html",
@@ -127,7 +126,6 @@ def create_app():
             jobs=jobs,
             enabled_boards=enabled_boards,
             search_queries=search_queries[:q_limit],
-            recent_runs=recent_runs,
             browse_min_pct=ui["browse_min_pct"],
         )
 
@@ -436,16 +434,21 @@ def create_app():
 
     @app.route("/pipeline")
     def pipeline_page():
-        runs = get_pipeline_runs(limit=20)
+        runs = get_pipeline_runs(limit=500)
         apps = get_applications()
         total_applications = len(apps)
         total_emails = sum(r.get("emails_sent", 0) for r in runs)
+        total_runs = len(runs)
         # Email enabled flag stored in a simple file
         email_flag = Path(__file__).parent / ".email_enabled"
         email_enabled = email_flag.exists()
-        return render_template("pipeline.html",
-            runs=runs, total_applications=total_applications,
-            total_emails=total_emails, email_enabled=email_enabled)
+        return render_template(
+            "pipeline.html",
+            total_runs=total_runs,
+            total_applications=total_applications,
+            total_emails=total_emails,
+            email_enabled=email_enabled,
+        )
 
     @app.route("/download")
     def download_file():
@@ -918,7 +921,6 @@ def create_app():
                 "browse_min_pct",
                 "nav_top_matches_pct",
                 "dashboard_search_queries_limit",
-                "pipeline_runs_limit",
             ):
                 try:
                     raw_ui[key] = int(val)
