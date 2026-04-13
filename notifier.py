@@ -59,7 +59,7 @@ def _tag_job(job: Dict) -> str:
     return "General ML"
 
 
-def _build_digest_html(jobs: List[Dict]) -> str:
+def _build_digest_html(jobs: List[Dict], min_score: float) -> str:
     """Build HTML email body for job digest."""
     # Group by tag
     tagged = {}
@@ -67,15 +67,16 @@ def _build_digest_html(jobs: List[Dict]) -> str:
         tag = _tag_job(job)
         tagged.setdefault(tag, []).append(job)
 
+    pct = int(round(min_score * 100))
     html = """
     <html><body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 700px; margin: 0 auto; color: #333;">
     <h1 style="color: #1a1a2e; border-bottom: 3px solid #88AC0B; padding-bottom: 10px;">
         Job Finder Digest
     </h1>
     <p style="color: #666; font-size: 14px;">
-        {count} new matching positions found since last digest.
+        {count} position(s) with match score ≥ {pct}% (since last digest).
     </p>
-    """.format(count=len(jobs))
+    """.format(count=len(jobs), pct=pct)
 
     for tag in sorted(tagged.keys()):
         tag_jobs = tagged[tag]
@@ -135,6 +136,7 @@ def send_digest_email(
     recipient: str,
     gmail_user: Optional[str] = None,
     gmail_app_password: Optional[str] = None,
+    min_score: float = 0.75,
 ) -> bool:
     """Send a digest email with new job matches.
 
@@ -155,8 +157,9 @@ def send_digest_email(
         )
         return False
 
-    subject = f"Job Finder: {len(jobs)} New Matching Positions"
-    html_body = _build_digest_html(jobs)
+    pct = int(round(min_score * 100))
+    subject = f"Job Finder: {len(jobs)} roles (≥{pct}% match)"
+    html_body = _build_digest_html(jobs, min_score=min_score)
 
     msg = MIMEMultipart("alternative")
     msg["Subject"] = subject

@@ -153,6 +153,13 @@ def run_pipeline(
         or pipeline_config.get("force_digest", False)
         or os.environ.get("FORCE_DIGEST", "").strip().lower() in ("1", "true", "yes")
     )
+    # Digest email: only jobs at or above this match score (0–1). Independent of auto_apply_threshold.
+    _dms = os.environ.get("DIGEST_MIN_SCORE", "").strip()
+    digest_min_score = (
+        float(_dms)
+        if _dms
+        else float(pipeline_config.get("digest_min_score", 0.75))
+    )
 
     run_id = start_pipeline_run()
     stats = {
@@ -298,15 +305,22 @@ def run_pipeline(
         if digest_due and not dry_run:
             last_email = get_last_email_sent()
             since = last_email["sent_at"] if last_email else "2000-01-01T00:00:00"
-            new_jobs = get_new_jobs_since(since, min_score=threshold)
+            new_jobs = get_new_jobs_since(since, min_score=digest_min_score)
 
             if new_jobs:
-                success = send_digest_email(new_jobs, recipient)
+                success = send_digest_email(
+                    new_jobs, recipient, min_score=digest_min_score
+                )
                 if success:
                     stats["emails_sent"] = 1
-                    log_lines.append(f"Email sent: {len(new_jobs)} jobs")
+                    log_lines.append(
+                        f"Email sent: {len(new_jobs)} jobs (match ≥ {digest_min_score:.0%})"
+                    )
             else:
-                logger.info("No new jobs since last digest")
+                logger.info(
+                    "No jobs for digest (none new since last email with match ≥ %.2f)",
+                    digest_min_score,
+                )
         else:
             if dry_run:
                 logger.info("Digest skipped (dry run)")
