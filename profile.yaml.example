@@ -81,7 +81,8 @@ search:
   # Reliable without extra keys: remotive, arbeitnow, himalayas, themuse, indeed, linkedin,
   #   greenhouse, lever (with valid slugs).
   # Often flaky on CI IPs: glassdoor, google (JobSpy), bayt (403), linkedin_posts, internet.
-  # JobSpy: use "Egypt" not "Cairo" alone for Wuzzuf; avoid "Malta" etc. for LinkedIn country.
+  # JobSpy: use "Egypt" not "Cairo" alone for Wuzzuf; keep python-jobspy updated (pip install -U python-jobspy).
+  # LinkedIn country parsing: use a supported region in locations if you see "Invalid country string" in logs.
 
 # --- Target Company Career Pages (optional) ---
 # Add companies whose Greenhouse or Lever ATS pages to scrape directly.
