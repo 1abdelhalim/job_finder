@@ -1,8 +1,8 @@
 {% extends "base.html" %}
-{% block title %}Applications — AI Apply{% endblock %}
+{% block title %}Applications — {{ ui.brand_name }}{% endblock %}
 {% block content %}
 <h2>Generated Applications</h2>
-<p style="color:#6b7280">Auto-generated CVs, cover letters, and form answers for matched jobs.</p>
+<p style="color:#6b7280">{{ ui.applications_blurb }}</p>
 
 {% if applications %}
 <table role="grid">

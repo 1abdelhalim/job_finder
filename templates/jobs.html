@@ -1,8 +1,8 @@
 {% extends "base.html" %}
-{% block title %}All jobs — AI Apply{% endblock %}
+{% block title %}{{ ui.jobs_page_title }} — {{ ui.brand_name }}{% endblock %}
 {% block content %}
 <div class="jf-hero" style="margin-bottom:1rem">
-  <h1 style="font-size:1.5rem">All jobs</h1>
+  <h1 style="font-size:1.5rem">{{ ui.jobs_page_title }}</h1>
   <p class="lead">{{ total }} listing{{ 's' if total != 1 else '' }} match your filters
     {% if applied_only %}<span style="display:inline-block;margin-left:0.35rem;padding:0.15rem 0.5rem;background:#ecfdf5;color:#047857;border-radius:6px;font-size:0.8rem">Applied only</span>{% endif %}
   </p>

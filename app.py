@@ -17,6 +17,7 @@ load_dotenv(Path(__file__).parent / ".env")
 from models import Job, JobBoard, SearchQuery
 from scrapers import SCRAPERS
 from matcher import JobMatcher
+from ui_config import DEFAULT_UI, get_ui_config
 from storage import (
     get_db, save_jobs, update_scores, get_top_jobs, zero_scores_for_jobs_not_in,
     mark_applied, mark_hidden, DB_PATH,
@@ -61,11 +62,21 @@ def load_profile() -> dict:
 def create_app():
     app = Flask(__name__, template_folder="templates", static_folder="static")
 
+    @app.context_processor
+    def inject_ui_config():
+        try:
+            return {"ui": get_ui_config(load_profile())}
+        except Exception:
+            return {"ui": get_ui_config({})}
+
     @app.route("/")
     def dashboard():
         """Main dashboard showing stats and top jobs."""
         profile = load_profile()
+        ui = get_ui_config(profile)
         enabled_boards = profile.get("search", {}).get("boards") or list(SCRAPERS.keys())
+        rp = ui["kpi_review_pct"] / 100.0
+        sp = ui["kpi_strong_pct"] / 100.0
 
         conn = get_db()
         total = conn.execute("SELECT COUNT(*) FROM jobs WHERE hidden = 0").fetchone()[0]
@@ -73,10 +84,11 @@ def create_app():
         avg_score = conn.execute("SELECT AVG(match_score) FROM jobs WHERE hidden = 0").fetchone()[0] or 0
         hidden_n = conn.execute("SELECT COUNT(*) FROM jobs WHERE hidden = 1").fetchone()[0]
         high_match = conn.execute(
-            "SELECT COUNT(*) FROM jobs WHERE hidden = 0 AND match_score >= 0.5"
+            "SELECT COUNT(*) FROM jobs WHERE hidden = 0 AND match_score >= ?", (sp,)
         ).fetchone()[0]
         to_review = conn.execute(
-            "SELECT COUNT(*) FROM jobs WHERE hidden = 0 AND applied = 0 AND match_score >= 0.4"
+            "SELECT COUNT(*) FROM jobs WHERE hidden = 0 AND applied = 0 AND match_score >= ?",
+            (rp,),
         ).fetchone()[0]
         last_scraped_raw = conn.execute("SELECT MAX(scraped_at) FROM jobs").fetchone()[0]
 
@@ -99,7 +111,8 @@ def create_app():
             jobs.append(j)
 
         search_queries = profile.get("search", {}).get("queries") or []
-        recent_runs = get_pipeline_runs(5)
+        q_limit = ui.get("dashboard_search_queries_limit", 8)
+        recent_runs = get_pipeline_runs(ui.get("pipeline_runs_limit", 5))
 
         return render_template(
             "dashboard.html",
@@ -113,8 +126,9 @@ def create_app():
             boards=[dict(b) for b in boards],
             jobs=jobs,
             enabled_boards=enabled_boards,
-            search_queries=search_queries[:8],
+            search_queries=search_queries[:q_limit],
             recent_runs=recent_runs,
+            browse_min_pct=ui["browse_min_pct"],
         )
 
     @app.route("/jobs")
@@ -252,11 +266,8 @@ def create_app():
 
     @app.route("/settings")
     def settings():
-        """Settings page for exclusions."""
-        profile = load_profile()
-        locations = profile.get("preferred_locations", [])
-        all_boards = [b.value for b in JobBoard]
-        return render_template("settings.html", locations=locations, all_boards=all_boards)
+        """Settings page — profile-driven; lists load via API."""
+        return render_template("settings.html")
 
     @app.route("/api/scrape", methods=["POST"])
     def api_scrape():
@@ -266,12 +277,17 @@ def create_app():
         max_results = data.get("max_results", 30)
         keywords = data.get("keywords", "")
         excluded_boards = set(data.get("excluded_boards", []))
-        excluded_countries = [c.lower() for c in data.get("excluded_countries", [])]
 
         def run_scrape():
             profile = load_profile()
             matcher = JobMatcher(profile)
             all_jobs = []
+
+            excluded_countries_lc = [c.lower() for c in data.get("excluded_countries", [])]
+            if not excluded_countries_lc:
+                excluded_countries_lc = [
+                    c.lower() for c in profile.get("search", {}).get("excluded_countries", [])
+                ]
 
             if keywords:
                 queries = [SearchQuery(
@@ -298,7 +314,7 @@ def create_app():
 
             for query in queries:
                 for board in query.boards:
-                    # Skip excluded boards
+                    # Skip excluded boards (legacy client override)
                     if board.value in excluded_boards:
                         continue
                     scraper_cls = SCRAPERS.get(board.value)
@@ -323,9 +339,9 @@ def create_app():
                     unique.append(j)
 
             # Filter out jobs from excluded countries
-            if excluded_countries:
+            if excluded_countries_lc:
                 unique = [j for j in unique
-                          if not any(c in j.location.lower() for c in excluded_countries)]
+                          if not any(c in j.location.lower() for c in excluded_countries_lc)]
 
             ranked = matcher.rank(unique)
             save_jobs(ranked)
@@ -879,6 +895,198 @@ def create_app():
             flag_file.touch()
             enabled = True
         return jsonify({"status": "ok", "enabled": enabled})
+
+    @app.route("/api/profile/ui", methods=["GET", "POST"])
+    def api_profile_ui():
+        """Read or update dashboard / nav copy and score thresholds (profile.ui)."""
+        profile = load_profile()
+        if request.method == "GET":
+            return jsonify({"status": "ok", "ui": get_ui_config(profile)})
+        patch = request.json or {}
+        raw_ui = profile.setdefault("ui", {})
+        for key in DEFAULT_UI:
+            if key not in patch:
+                continue
+            val = patch[key]
+            if key == "quick_links":
+                if isinstance(val, list):
+                    raw_ui[key] = val
+                continue
+            if key in (
+                "kpi_review_pct",
+                "kpi_strong_pct",
+                "browse_min_pct",
+                "nav_top_matches_pct",
+                "dashboard_search_queries_limit",
+                "pipeline_runs_limit",
+            ):
+                try:
+                    raw_ui[key] = int(val)
+                except (TypeError, ValueError):
+                    pass
+                continue
+            if isinstance(val, str) or val is None:
+                raw_ui[key] = val if val is not None else ""
+        _save_profile(profile)
+        return jsonify({"status": "ok", "ui": get_ui_config(load_profile())})
+
+    @app.route("/api/profile/locations", methods=["GET", "POST"])
+    def api_profile_locations():
+        """Search / scrape locations and preferred locations (kept in sync)."""
+        profile = load_profile()
+        if request.method == "GET":
+            locs = profile.get("search", {}).get("locations")
+            if not locs:
+                locs = profile.get("preferred_locations", [])
+            return jsonify({"status": "ok", "locations": locs or []})
+        data = request.json or {}
+        locs = data.get("locations")
+        if not isinstance(locs, list):
+            return jsonify({"status": "error", "error": "locations must be a list"}), 400
+        locs = [str(x).strip() for x in locs if str(x).strip()]
+        profile.setdefault("search", {})["locations"] = locs
+        profile["preferred_locations"] = locs
+        _save_profile(profile)
+        return jsonify({"status": "ok", "locations": locs})
+
+    @app.route("/api/profile/boards", methods=["GET", "POST"])
+    def api_profile_boards():
+        """Enabled job boards for scraping (profile.search.boards)."""
+        profile = load_profile()
+        all_vals = [b.value for b in JobBoard]
+        if request.method == "GET":
+            enabled = profile.get("search", {}).get("boards") or []
+            return jsonify({"status": "ok", "enabled": enabled, "all": all_vals})
+        data = request.json or {}
+        boards = data.get("boards")
+        if not isinstance(boards, list):
+            return jsonify({"status": "error", "error": "boards must be a list"}), 400
+        cleaned = []
+        for b in boards:
+            s = str(b).strip().lower()
+            if s in all_vals and s not in cleaned:
+                cleaned.append(s)
+        profile.setdefault("search", {})["boards"] = cleaned
+        _save_profile(profile)
+        return jsonify({"status": "ok", "enabled": cleaned})
+
+    @app.route("/api/profile/excluded-countries", methods=["GET", "POST"])
+    def api_profile_excluded_countries():
+        """Countries to filter out when scraping (profile.search.excluded_countries)."""
+        profile = load_profile()
+        if request.method == "GET":
+            countries = profile.get("search", {}).get("excluded_countries", [])
+            return jsonify({"status": "ok", "countries": countries or []})
+        data = request.json or {}
+        countries = data.get("countries")
+        if not isinstance(countries, list):
+            return jsonify({"status": "error", "error": "countries must be a list"}), 400
+        countries = [str(x).strip() for x in countries if str(x).strip()]
+        profile.setdefault("search", {})["excluded_countries"] = countries
+        _save_profile(profile)
+        return jsonify({"status": "ok", "countries": countries})
+
+    @app.route("/api/profile/pipeline", methods=["GET", "POST"])
+    def api_profile_pipeline():
+        """Pipeline + related search knobs stored in profile.yaml."""
+        profile = load_profile()
+        if request.method == "GET":
+            pipe = profile.get("pipeline", {})
+            search = profile.get("search", {})
+            return jsonify(
+                {
+                    "status": "ok",
+                    "ollama_model": pipe.get("ollama_model", "qwen3.5:9b"),
+                    "email_recipient": pipe.get("email_recipient", ""),
+                    "email_digest_interval_days": pipe.get("email_digest_interval_days", 2),
+                    "auto_apply_threshold": pipe.get("auto_apply_threshold", 0.45),
+                    "max_applications_per_run": pipe.get("max_applications_per_run", 10),
+                    "cv_dir": pipe.get("cv_dir", ""),
+                    "max_age_days": search.get("max_age_days", 14),
+                    "remote": search.get("remote", True),
+                }
+            )
+        data = request.json or {}
+        pipe = profile.setdefault("pipeline", {})
+        search = profile.setdefault("search", {})
+        if "ollama_model" in data:
+            pipe["ollama_model"] = str(data["ollama_model"] or "").strip()
+        if "email_recipient" in data:
+            pipe["email_recipient"] = str(data["email_recipient"] or "").strip()
+        if "email_digest_interval_days" in data:
+            try:
+                pipe["email_digest_interval_days"] = max(1, int(data["email_digest_interval_days"]))
+            except (TypeError, ValueError):
+                pass
+        if "auto_apply_threshold" in data:
+            try:
+                pipe["auto_apply_threshold"] = float(data["auto_apply_threshold"])
+            except (TypeError, ValueError):
+                pass
+        if "max_applications_per_run" in data:
+            try:
+                pipe["max_applications_per_run"] = max(0, int(data["max_applications_per_run"]))
+            except (TypeError, ValueError):
+                pass
+        if "cv_dir" in data:
+            pipe["cv_dir"] = str(data["cv_dir"] or "").strip()
+        if "max_age_days" in data:
+            try:
+                search["max_age_days"] = max(1, int(data["max_age_days"]))
+            except (TypeError, ValueError):
+                pass
+        if "remote" in data:
+            search["remote"] = bool(data["remote"])
+        _save_profile(profile)
+        return jsonify({"status": "ok"})
+
+    @app.route("/api/profile/titles", methods=["GET", "POST", "DELETE"])
+    def api_profile_titles():
+        """Target job titles for matching (profile.titles)."""
+        profile = load_profile()
+        if request.method == "GET":
+            return jsonify({"titles": profile.get("titles") or []})
+        data = request.json or {}
+        title = data.get("title", "").strip()
+        titles = list(profile.get("titles") or [])
+        if request.method == "POST":
+            if not title:
+                return jsonify({"status": "error", "error": "title required"})
+            if title not in titles:
+                titles.append(title)
+            profile["titles"] = titles
+            _save_profile(profile)
+            return jsonify({"status": "ok", "titles": titles})
+        if request.method == "DELETE":
+            rm = data.get("title", "")
+            profile["titles"] = [t for t in titles if t != rm]
+            _save_profile(profile)
+            return jsonify({"status": "ok", "titles": profile["titles"]})
+        return jsonify({"status": "error"}), 400
+
+    @app.route("/api/profile/keywords", methods=["GET", "POST", "DELETE"])
+    def api_profile_keywords():
+        """Matcher keywords (profile.keywords)."""
+        profile = load_profile()
+        if request.method == "GET":
+            return jsonify({"keywords": profile.get("keywords") or []})
+        data = request.json or {}
+        kw = data.get("keyword", "").strip()
+        keywords = list(profile.get("keywords") or [])
+        if request.method == "POST":
+            if not kw:
+                return jsonify({"status": "error", "error": "keyword required"})
+            if kw not in keywords:
+                keywords.append(kw)
+            profile["keywords"] = keywords
+            _save_profile(profile)
+            return jsonify({"status": "ok", "keywords": keywords})
+        if request.method == "DELETE":
+            rm = data.get("keyword", "")
+            profile["keywords"] = [k for k in keywords if k != rm]
+            _save_profile(profile)
+            return jsonify({"status": "ok", "keywords": profile["keywords"]})
+        return jsonify({"status": "error"}), 400
 
     @app.route("/api/form-answers/<path:url>")
     def api_form_answers(url):

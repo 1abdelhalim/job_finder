@@ -1,7 +1,47 @@
 {% extends "base.html" %}
-{% block title %}AI Apply — Settings{% endblock %}
+{% block title %}Settings — {{ ui.brand_name }}{% endblock %}
 {% block content %}
 <h2>Settings</h2>
+
+<!-- Brand & dashboard -->
+<div class="settings-panel">
+    <h3>Brand &amp; dashboard copy</h3>
+    <p style="font-size:0.85rem;color:#6b7280">Shown in the nav and on the home dashboard. Score thresholds drive KPI cards and links.</p>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0.75rem;margin-top:0.75rem">
+        <div><label for="ui-brand">Brand name</label><input id="ui-brand" type="text" style="margin-bottom:0"></div>
+        <div><label for="ui-tagline">Tagline</label><input id="ui-tagline" type="text" style="margin-bottom:0"></div>
+        <div style="grid-column:1/-1"><label for="ui-hero-title">Dashboard title</label><input id="ui-hero-title" type="text" style="margin-bottom:0"></div>
+        <div style="grid-column:1/-1"><label for="ui-hero-sub">Dashboard subtitle</label><textarea id="ui-hero-sub" rows="2" style="width:100%;margin-bottom:0"></textarea></div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:0.75rem;margin-top:0.75rem">
+        <div><label for="ui-kpi-review">To review ≥ (%)</label><input id="ui-kpi-review" type="number" min="0" max="100" style="margin-bottom:0"></div>
+        <div><label for="ui-kpi-strong">Strong match ≥ (%)</label><input id="ui-kpi-strong" type="number" min="0" max="100" style="margin-bottom:0"></div>
+        <div><label for="ui-browse-min">Footer browse link ≥ (%)</label><input id="ui-browse-min" type="number" min="0" max="100" style="margin-bottom:0"></div>
+        <div><label for="ui-nav-top">Nav “Top matches” ≥ (%)</label><input id="ui-nav-top" type="number" min="0" max="100" style="margin-bottom:0"></div>
+    </div>
+    <div style="margin-top:0.75rem">
+        <label for="ui-quick-json">Quick links (JSON array of <code>{"label","query"}</code> — query is the <code>/jobs?</code> part)</label>
+        <textarea id="ui-quick-json" rows="8" style="width:100%;font-family:monospace;font-size:0.8rem;margin-bottom:0"></textarea>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:0.75rem;margin-top:0.75rem">
+        <div><label for="ui-empty-title">Empty state title</label><input id="ui-empty-title" type="text" style="margin-bottom:0"></div>
+        <div><label for="ui-footer-lbl">Dashboard footer link label</label><input id="ui-footer-lbl" type="text" style="margin-bottom:0"></div>
+        <div><label for="ui-jobs-title">All jobs page title</label><input id="ui-jobs-title" type="text" style="margin-bottom:0"></div>
+        <div style="grid-column:1/-1"><label for="ui-apps-blurb">Applications page blurb</label><input id="ui-apps-blurb" type="text" style="margin-bottom:0"></div>
+    </div>
+    <div style="margin-top:0.75rem">
+        <label for="ui-empty-body">Empty state (HTML allowed)</label>
+        <textarea id="ui-empty-body" rows="4" style="width:100%;font-size:0.85rem;margin-bottom:0"></textarea>
+    </div>
+    <div style="margin-top:0.75rem">
+        <label for="ui-actions-help">Actions panel help (HTML allowed)</label>
+        <textarea id="ui-actions-help" rows="3" style="width:100%;font-size:0.85rem;margin-bottom:0"></textarea>
+    </div>
+    <div style="margin-top:0.75rem;display:flex;gap:0.5rem;align-items:center">
+        <button type="button" class="primary" onclick="saveUiConfig()">Save appearance</button>
+        <span id="ui-save-status" style="font-size:0.8rem;color:#6b7280"></span>
+    </div>
+</div>
 
 <!-- Search Queries -->
 <div class="settings-panel">
@@ -31,6 +71,45 @@
     </div>
 </div>
 
+<!-- Target job titles -->
+<div class="settings-panel">
+    <h3>Target job titles</h3>
+    <p style="font-size:0.85rem;color:#6b7280">Used by the matcher for title relevance. Same pattern as skills.</p>
+    <div id="title-chips" style="margin-top:0.5rem"></div>
+    <div style="margin-top:0.8rem;display:flex;gap:0.5rem;align-items:end">
+        <div style="flex:1">
+            <label for="new-title">Add title phrase</label>
+            <input type="text" id="new-title" placeholder="e.g. data engineer" style="margin-bottom:0">
+        </div>
+        <button type="button" onclick="addTitle()" class="outline" style="margin-bottom:0">Add</button>
+    </div>
+</div>
+
+<!-- Matcher keywords -->
+<div class="settings-panel">
+    <h3>Matcher keywords</h3>
+    <p style="font-size:0.85rem;color:#6b7280">Extra terms that boost relevance in scoring.</p>
+    <div id="keyword-chips" style="margin-top:0.5rem"></div>
+    <div style="margin-top:0.8rem;display:flex;gap:0.5rem;align-items:end">
+        <div style="flex:1">
+            <label for="new-keyword">Add keyword</label>
+            <input type="text" id="new-keyword" placeholder="e.g. snowflake" style="margin-bottom:0">
+        </div>
+        <button type="button" onclick="addKeyword()" class="outline" style="margin-bottom:0">Add</button>
+    </div>
+</div>
+
+<!-- Preferred locations (scrape + matcher) -->
+<div class="settings-panel">
+    <h3>Preferred locations</h3>
+    <p style="font-size:0.85rem;color:#6b7280">One per line. Used for scrape location filters and matching.</p>
+    <textarea id="locations-text" rows="8" style="width:100%;font-family:monospace;font-size:0.85rem" placeholder="Remote&#10;Germany"></textarea>
+    <div style="margin-top:0.5rem;display:flex;gap:0.5rem;align-items:center">
+        <button type="button" class="outline" onclick="saveLocations()">Save locations</button>
+        <span id="locations-status" style="font-size:0.8rem;color:#6b7280"></span>
+    </div>
+</div>
+
 <!-- Life Story -->
 <div class="settings-panel">
     <h3>Life Story</h3>
@@ -42,39 +121,49 @@
     </div>
 </div>
 
-<!-- Country Exclusions -->
+<!-- Excluded countries (scraping filter + optional hide) -->
 <div class="settings-panel">
-    <h3>Excluded Countries</h3>
-    <p style="font-size:0.85rem;color:#6b7280">Jobs from excluded countries will be hidden from results. Click a country to toggle it.</p>
-    <div id="country-chips" style="margin-top:0.5rem">
-        {% for loc in locations %}
-        <span class="chip active" data-value="{{ loc }}" onclick="toggleCountry(this)">
-            {{ loc }}
-            <button onclick="event.stopPropagation(); excludeCountry(this.parentElement)">&times;</button>
-        </span>
-        {% endfor %}
-    </div>
+    <h3>Excluded countries</h3>
+    <p style="font-size:0.85rem;color:#6b7280">Stored in your profile. New scrapes skip jobs whose location contains these strings. Click to remove from the list.</p>
+    <div id="country-chips" style="margin-top:0.5rem"></div>
     <div style="margin-top:0.8rem;display:flex;gap:0.5rem;align-items:end">
         <div>
-            <label for="new-country">Add country to exclude</label>
+            <label for="new-country">Add substring to exclude</label>
             <input type="text" id="new-country" placeholder="e.g. India" style="margin-bottom:0">
         </div>
-        <button onclick="addExcludedCountry()" class="outline" style="margin-bottom:0">Exclude</button>
+        <button type="button" onclick="addExcludedCountry()" class="outline" style="margin-bottom:0">Add</button>
     </div>
     <div id="excluded-countries-list" style="margin-top:0.5rem"></div>
 </div>
 
-<!-- Job Board Sources -->
+<!-- Job boards -->
 <div class="settings-panel">
-    <h3>Job Board Sources</h3>
-    <p style="font-size:0.85rem;color:#6b7280">Toggle which job boards to include when scraping. Disabled boards won't be queried.</p>
-    <div id="board-chips" style="margin-top:0.5rem">
-        {% for b in all_boards %}
-        <span class="chip active" data-value="{{ b }}" onclick="toggleBoard(this)">
-            <span class="board-badge board-{{ b }}" style="margin:0">{{ b }}</span>
-            <button onclick="event.stopPropagation(); excludeBoard(this.parentElement)">&times;</button>
-        </span>
-        {% endfor %}
+    <h3>Job board sources</h3>
+    <p style="font-size:0.85rem;color:#6b7280">Enabled boards are saved to your profile. Click a board to turn it on or off.</p>
+    <div id="board-chips" style="margin-top:0.5rem"></div>
+</div>
+
+<!-- Pipeline -->
+<div class="settings-panel">
+    <h3>Pipeline &amp; automation</h3>
+    <p style="font-size:0.85rem;color:#6b7280">Ollama model, email digest, and scrape age window.</p>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:0.75rem;margin-top:0.75rem">
+        <div><label for="pl-ollama">Ollama model</label><input id="pl-ollama" type="text" style="margin-bottom:0"></div>
+        <div><label for="pl-email">Digest email</label><input id="pl-email" type="email" style="margin-bottom:0"></div>
+        <div><label for="pl-digest">Digest every (days)</label><input id="pl-digest" type="number" min="1" style="margin-bottom:0"></div>
+        <div><label for="pl-max-age">Max job age (days)</label><input id="pl-max-age" type="number" min="1" style="margin-bottom:0"></div>
+        <div><label for="pl-thresh">Auto-apply threshold (0–1)</label><input id="pl-thresh" type="text" style="margin-bottom:0"></div>
+        <div><label for="pl-max-apps">Max applications per run</label><input id="pl-max-apps" type="number" min="0" style="margin-bottom:0"></div>
+        <div style="grid-column:1/-1"><label for="pl-cvdir">CV directory (optional)</label><input id="pl-cvdir" type="text" placeholder="~/CV" style="margin-bottom:0"></div>
+        <div style="grid-column:1/-1">
+            <label style="display:inline-flex;align-items:center;gap:0.4rem;cursor:pointer">
+                <input type="checkbox" id="pl-remote"> Prefer remote in search queries
+            </label>
+        </div>
+    </div>
+    <div style="margin-top:0.75rem">
+        <button type="button" class="primary" onclick="savePipeline()">Save pipeline settings</button>
+        <span id="pipeline-status" style="font-size:0.8rem;color:#6b7280;margin-left:0.5rem"></span>
     </div>
 </div>
 
@@ -82,7 +171,7 @@
 <div class="settings-panel">
     <h3>Actions</h3>
     <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
-        <button onclick="clearExclusions()" class="outline secondary">Reset All Exclusions</button>
+        <button type="button" onclick="clearExcludedCountries()" class="outline secondary">Clear excluded countries list</button>
         <button onclick="rescoreJobs()" class="outline">Re-score All Jobs</button>
         <button onclick="hideExcludedCountryJobs()" class="outline contrast">Hide Jobs from Excluded Countries</button>
         <button onclick="resetSearch()" class="outline" style="color:#dc2626;border-color:#dc2626">Reset Search (New DB)</button>
@@ -93,6 +182,66 @@
 
 {% block scripts %}
 <script>
+// ─── UI / dashboard copy ───────────────────────────────────────────────────────
+async function loadUiConfig() {
+    const res = await fetch('/api/profile/ui');
+    const data = await res.json();
+    if (data.status !== 'ok' || !data.ui) return;
+    const u = data.ui;
+    document.getElementById('ui-brand').value = u.brand_name || '';
+    document.getElementById('ui-tagline').value = u.tagline || '';
+    document.getElementById('ui-hero-title').value = u.hero_title || '';
+    document.getElementById('ui-hero-sub').value = u.hero_subtitle || '';
+    document.getElementById('ui-kpi-review').value = u.kpi_review_pct;
+    document.getElementById('ui-kpi-strong').value = u.kpi_strong_pct;
+    document.getElementById('ui-browse-min').value = u.browse_min_pct;
+    document.getElementById('ui-nav-top').value = u.nav_top_matches_pct;
+    document.getElementById('ui-quick-json').value = JSON.stringify(u.quick_links || [], null, 2);
+    document.getElementById('ui-empty-body').value = u.empty_state_body || '';
+    document.getElementById('ui-actions-help').value = u.actions_help || '';
+    document.getElementById('ui-empty-title').value = u.empty_state_title || '';
+    document.getElementById('ui-footer-lbl').value = u.dashboard_footer_label || '';
+    document.getElementById('ui-jobs-title').value = u.jobs_page_title || '';
+    document.getElementById('ui-apps-blurb').value = u.applications_blurb || '';
+}
+
+async function saveUiConfig() {
+    const status = document.getElementById('ui-save-status');
+    let quick_links;
+    try {
+        quick_links = JSON.parse(document.getElementById('ui-quick-json').value || '[]');
+    } catch (e) {
+        alert('Quick links must be valid JSON.');
+        return;
+    }
+    const body = {
+        brand_name: document.getElementById('ui-brand').value,
+        tagline: document.getElementById('ui-tagline').value,
+        hero_title: document.getElementById('ui-hero-title').value,
+        hero_subtitle: document.getElementById('ui-hero-sub').value,
+        kpi_review_pct: parseInt(document.getElementById('ui-kpi-review').value, 10),
+        kpi_strong_pct: parseInt(document.getElementById('ui-kpi-strong').value, 10),
+        browse_min_pct: parseInt(document.getElementById('ui-browse-min').value, 10),
+        nav_top_matches_pct: parseInt(document.getElementById('ui-nav-top').value, 10),
+        quick_links,
+        empty_state_title: document.getElementById('ui-empty-title').value,
+        empty_state_body: document.getElementById('ui-empty-body').value,
+        actions_help: document.getElementById('ui-actions-help').value,
+        dashboard_footer_label: document.getElementById('ui-footer-lbl').value,
+        jobs_page_title: document.getElementById('ui-jobs-title').value,
+        applications_blurb: document.getElementById('ui-apps-blurb').value,
+    };
+    const res = await fetch('/api/profile/ui', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(body),
+    });
+    const data = await res.json();
+    status.textContent = data.status === 'ok' ? 'Saved. Reload other tabs to see nav changes.' : (data.error || 'Error');
+    status.style.color = data.status === 'ok' ? '#16a34a' : '#dc2626';
+    setTimeout(() => { status.textContent = ''; }, 4000);
+}
+
 // ─── Search Queries ───────────────────────────────────────────────────────────
 async function loadQueries() {
     const res = await fetch('/api/profile/queries');
@@ -179,6 +328,106 @@ async function deleteSkill(btn, skill) {
 
 document.getElementById('new-skill').addEventListener('keydown', e => { if (e.key === 'Enter') addSkill(); });
 
+// ─── Titles ───────────────────────────────────────────────────────────────────
+async function loadTitles() {
+    const res = await fetch('/api/profile/titles');
+    const data = await res.json();
+    renderTitleChips(data.titles || []);
+}
+function renderTitleChips(titles) {
+    const container = document.getElementById('title-chips');
+    container.innerHTML = '';
+    titles.forEach(t => {
+        const chip = document.createElement('span');
+        chip.className = 'chip active';
+        chip.innerHTML = `${t} <button type="button" onclick="deleteTitle(this, '${t.replace(/'/g, "\\'")}')">&times;</button>`;
+        container.appendChild(chip);
+    });
+}
+async function addTitle() {
+    const input = document.getElementById('new-title');
+    const title = input.value.trim();
+    if (!title) return;
+    const res = await fetch('/api/profile/titles', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({title}),
+    });
+    const data = await res.json();
+    if (data.status === 'ok') { renderTitleChips(data.titles); input.value = ''; }
+}
+async function deleteTitle(btn, title) {
+    const res = await fetch('/api/profile/titles', {
+        method: 'DELETE',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({title}),
+    });
+    const data = await res.json();
+    if (data.status === 'ok') renderTitleChips(data.titles);
+}
+document.getElementById('new-title').addEventListener('keydown', e => { if (e.key === 'Enter') addTitle(); });
+
+// ─── Keywords ─────────────────────────────────────────────────────────────────
+async function loadKeywords() {
+    const res = await fetch('/api/profile/keywords');
+    const data = await res.json();
+    renderKeywordChips(data.keywords || []);
+}
+function renderKeywordChips(keywords) {
+    const container = document.getElementById('keyword-chips');
+    container.innerHTML = '';
+    keywords.forEach(k => {
+        const chip = document.createElement('span');
+        chip.className = 'chip active';
+        chip.innerHTML = `${k} <button type="button" onclick="deleteKeyword(this, '${k.replace(/'/g, "\\'")}')">&times;</button>`;
+        container.appendChild(chip);
+    });
+}
+async function addKeyword() {
+    const input = document.getElementById('new-keyword');
+    const keyword = input.value.trim();
+    if (!keyword) return;
+    const res = await fetch('/api/profile/keywords', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({keyword}),
+    });
+    const data = await res.json();
+    if (data.status === 'ok') { renderKeywordChips(data.keywords); input.value = ''; }
+}
+async function deleteKeyword(btn, keyword) {
+    const res = await fetch('/api/profile/keywords', {
+        method: 'DELETE',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({keyword}),
+    });
+    const data = await res.json();
+    if (data.status === 'ok') renderKeywordChips(data.keywords);
+}
+document.getElementById('new-keyword').addEventListener('keydown', e => { if (e.key === 'Enter') addKeyword(); });
+
+// ─── Locations ────────────────────────────────────────────────────────────────
+async function loadLocations() {
+    const res = await fetch('/api/profile/locations');
+    const data = await res.json();
+    const locs = data.locations || [];
+    document.getElementById('locations-text').value = locs.join('\n');
+}
+async function saveLocations() {
+    const raw = document.getElementById('locations-text').value;
+    const locations = raw.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+    const status = document.getElementById('locations-status');
+    const res = await fetch('/api/profile/locations', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({locations}),
+    });
+    const data = await res.json();
+    status.textContent = data.status === 'ok' ? 'Saved.' : (data.error || 'Error');
+    status.style.color = data.status === 'ok' ? '#16a34a' : '#dc2626';
+    setTimeout(() => { status.textContent = ''; }, 3000);
+}
+
 // ─── Life Story ───────────────────────────────────────────────────────────────
 async function loadLifeStory() {
     const res = await fetch('/api/life-story');
@@ -214,153 +463,181 @@ async function rescoreJobs() {
     alert(`Re-scored ${data.rescored} jobs.`);
 }
 
-// ─── Country Exclusions ───────────────────────────────────────────────────────
-function getExcludedCountries() {
-    return JSON.parse(localStorage.getItem('excludedCountries') || '[]');
-}
-function getExcludedBoards() {
-    return JSON.parse(localStorage.getItem('excludedBoards') || '[]');
-}
-function saveExcludedCountries(list) {
-    localStorage.setItem('excludedCountries', JSON.stringify(list));
-}
-function saveExcludedBoards(list) {
-    localStorage.setItem('excludedBoards', JSON.stringify(list));
-}
+// ─── Excluded countries (profile) ─────────────────────────────────────────────
+let cachedExcludedCountries = [];
 
-function toggleCountry(chip) {
-    const val = chip.dataset.value;
-    let excluded = getExcludedCountries();
-    if (excluded.includes(val)) {
-        excluded = excluded.filter(c => c !== val);
-        chip.classList.remove('excluded');
-        chip.classList.add('active');
-    } else {
-        excluded.push(val);
-        chip.classList.add('excluded');
-        chip.classList.remove('active');
-    }
-    saveExcludedCountries(excluded);
+async function loadExcludedCountriesUi() {
+    const res = await fetch('/api/profile/excluded-countries');
+    const data = await res.json();
+    cachedExcludedCountries = data.countries || [];
+    renderExcludedCountryChips();
     updateExcludedDisplay();
 }
 
-function excludeCountry(chip) {
-    const val = chip.dataset.value;
-    let excluded = getExcludedCountries();
-    if (!excluded.includes(val)) {
-        excluded.push(val);
-        saveExcludedCountries(excluded);
-    }
-    chip.classList.add('excluded');
-    chip.classList.remove('active');
-    updateExcludedDisplay();
+function renderExcludedCountryChips() {
+    const container = document.getElementById('country-chips');
+    container.innerHTML = '';
+    cachedExcludedCountries.forEach(val => {
+        const chip = document.createElement('span');
+        chip.className = 'chip excluded';
+        chip.dataset.value = val;
+        chip.innerHTML = `${val} <button type="button" onclick="removeExcludedCountry('${val.replace(/'/g, "\\'")}')">&times;</button>`;
+        container.appendChild(chip);
+    });
 }
 
-function addExcludedCountry() {
+async function persistExcludedCountries() {
+    await fetch('/api/profile/excluded-countries', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({countries: cachedExcludedCountries}),
+    });
+}
+
+async function addExcludedCountry() {
     const input = document.getElementById('new-country');
     const val = input.value.trim();
     if (!val) return;
-    let excluded = getExcludedCountries();
-    if (!excluded.includes(val)) {
-        excluded.push(val);
-        saveExcludedCountries(excluded);
-        const container = document.getElementById('country-chips');
-        const existing = container.querySelector(`[data-value="${val}"]`);
-        if (!existing) {
-            const chip = document.createElement('span');
-            chip.className = 'chip excluded';
-            chip.dataset.value = val;
-            chip.onclick = function() { toggleCountry(this); };
-            chip.innerHTML = `${val} <button onclick="event.stopPropagation(); excludeCountry(this.parentElement)">&times;</button>`;
-            container.appendChild(chip);
-        }
+    if (!cachedExcludedCountries.includes(val)) {
+        cachedExcludedCountries.push(val);
+        await persistExcludedCountries();
+        renderExcludedCountryChips();
     }
     input.value = '';
     updateExcludedDisplay();
 }
 
-function toggleBoard(chip) {
-    const val = chip.dataset.value;
-    let excluded = getExcludedBoards();
-    if (excluded.includes(val)) {
-        excluded = excluded.filter(b => b !== val);
-        chip.classList.remove('excluded');
-        chip.classList.add('active');
-    } else {
-        excluded.push(val);
-        chip.classList.add('excluded');
-        chip.classList.remove('active');
-    }
-    saveExcludedBoards(excluded);
-}
-
-function excludeBoard(chip) {
-    const val = chip.dataset.value;
-    let excluded = getExcludedBoards();
-    if (!excluded.includes(val)) {
-        excluded.push(val);
-        saveExcludedBoards(excluded);
-    }
-    chip.classList.add('excluded');
-    chip.classList.remove('active');
-}
-
-function clearExclusions() {
-    localStorage.removeItem('excludedCountries');
-    localStorage.removeItem('excludedBoards');
-    document.querySelectorAll('.chip.excluded').forEach(c => {
-        c.classList.remove('excluded');
-        c.classList.add('active');
-    });
+async function removeExcludedCountry(val) {
+    cachedExcludedCountries = cachedExcludedCountries.filter(c => c !== val);
+    await persistExcludedCountries();
+    renderExcludedCountryChips();
     updateExcludedDisplay();
 }
 
-async function hideExcludedCountryJobs() {
-    const excluded = getExcludedCountries();
-    if (excluded.length === 0) {
-        alert('No countries excluded. Toggle countries above first.');
-        return;
-    }
-    const resp = await fetch('/api/hide_by_countries', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({countries: excluded}),
-    });
-    const data = await resp.json();
-    alert(`Hidden ${data.hidden} jobs from excluded countries.`);
+async function clearExcludedCountries() {
+    if (!confirm('Remove all excluded-country filters from your profile?')) return;
+    cachedExcludedCountries = [];
+    await persistExcludedCountries();
+    renderExcludedCountryChips();
+    updateExcludedDisplay();
 }
 
 function updateExcludedDisplay() {
-    const excluded = getExcludedCountries();
     const el = document.getElementById('excluded-countries-list');
-    if (excluded.length > 0) {
-        el.innerHTML = '<small style="color:#991b1b">Currently excluded: ' + excluded.join(', ') + '</small>';
+    if (cachedExcludedCountries.length > 0) {
+        el.innerHTML = '<small style="color:#991b1b">Active filters: ' + cachedExcludedCountries.join(', ') + '</small>';
     } else {
         el.innerHTML = '';
     }
 }
 
+// ─── Boards (profile.search.boards) ───────────────────────────────────────────
+let allBoardIds = [];
+let enabledBoardIds = [];
+
+async function loadBoardsUi() {
+    const res = await fetch('/api/profile/boards');
+    const data = await res.json();
+    allBoardIds = data.all || [];
+    enabledBoardIds = data.enabled || [];
+    renderBoardChips();
+}
+
+function renderBoardChips() {
+    const container = document.getElementById('board-chips');
+    container.innerHTML = '';
+    allBoardIds.forEach(b => {
+        const on = enabledBoardIds.includes(b);
+        const chip = document.createElement('span');
+        chip.className = on ? 'chip active' : 'chip excluded';
+        chip.dataset.value = b;
+        chip.style.cursor = 'pointer';
+        chip.onclick = () => toggleBoardPersist(b);
+        chip.innerHTML = `<span class="board-badge board-${b}" style="margin:0">${b}</span>`;
+        container.appendChild(chip);
+    });
+}
+
+async function toggleBoardPersist(board) {
+    if (enabledBoardIds.includes(board)) {
+        enabledBoardIds = enabledBoardIds.filter(x => x !== board);
+    } else {
+        enabledBoardIds = [...enabledBoardIds, board];
+    }
+    const res = await fetch('/api/profile/boards', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({boards: enabledBoardIds}),
+    });
+    const data = await res.json();
+    if (data.status === 'ok') enabledBoardIds = data.enabled;
+    renderBoardChips();
+}
+
+async function hideExcludedCountryJobs() {
+    if (cachedExcludedCountries.length === 0) {
+        alert('Add excluded countries above first.');
+        return;
+    }
+    const resp = await fetch('/api/hide_by_countries', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({countries: cachedExcludedCountries}),
+    });
+    const data = await resp.json();
+    alert(`Hidden ${data.hidden} jobs matching those filters.`);
+}
+
+// ─── Pipeline ─────────────────────────────────────────────────────────────────
+async function loadPipeline() {
+    const res = await fetch('/api/profile/pipeline');
+    const data = await res.json();
+    if (data.status !== 'ok') return;
+    document.getElementById('pl-ollama').value = data.ollama_model || '';
+    document.getElementById('pl-email').value = data.email_recipient || '';
+    document.getElementById('pl-digest').value = data.email_digest_interval_days || 2;
+    document.getElementById('pl-max-age').value = data.max_age_days || 14;
+    document.getElementById('pl-thresh').value = data.auto_apply_threshold ?? '';
+    document.getElementById('pl-max-apps').value = data.max_applications_per_run ?? 10;
+    document.getElementById('pl-cvdir').value = data.cv_dir || '';
+    document.getElementById('pl-remote').checked = !!data.remote;
+}
+
+async function savePipeline() {
+    const status = document.getElementById('pipeline-status');
+    const body = {
+        ollama_model: document.getElementById('pl-ollama').value,
+        email_recipient: document.getElementById('pl-email').value,
+        email_digest_interval_days: parseInt(document.getElementById('pl-digest').value, 10),
+        max_age_days: parseInt(document.getElementById('pl-max-age').value, 10),
+        auto_apply_threshold: parseFloat(document.getElementById('pl-thresh').value),
+        max_applications_per_run: parseInt(document.getElementById('pl-max-apps').value, 10),
+        cv_dir: document.getElementById('pl-cvdir').value,
+        remote: document.getElementById('pl-remote').checked,
+    };
+    const res = await fetch('/api/profile/pipeline', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(body),
+    });
+    const data = await res.json();
+    status.textContent = data.status === 'ok' ? 'Saved.' : (data.error || 'Error');
+    status.style.color = data.status === 'ok' ? '#16a34a' : '#dc2626';
+    setTimeout(() => { status.textContent = ''; }, 3000);
+}
+
 // ─── Init ─────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
+    loadUiConfig();
     loadQueries();
     loadSkills();
+    loadTitles();
+    loadKeywords();
+    loadLocations();
     loadLifeStory();
-
-    const excludedCountries = getExcludedCountries();
-    document.querySelectorAll('#country-chips .chip').forEach(chip => {
-        if (excludedCountries.includes(chip.dataset.value)) {
-            chip.classList.add('excluded');
-            chip.classList.remove('active');
-        }
-    });
-    const excludedBoards = getExcludedBoards();
-    document.querySelectorAll('#board-chips .chip').forEach(chip => {
-        if (excludedBoards.includes(chip.dataset.value)) {
-            chip.classList.add('excluded');
-            chip.classList.remove('active');
-        }
-    });
-    updateExcludedDisplay();
+    loadExcludedCountriesUi();
+    loadBoardsUi();
+    loadPipeline();
 });
 </script>
 {% endblock %}

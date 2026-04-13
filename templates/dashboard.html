@@ -1,9 +1,9 @@
 {% extends "base.html" %}
-{% block title %}Dashboard — AI Apply{% endblock %}
+{% block title %}Dashboard — {{ ui.brand_name }}{% endblock %}
 {% block content %}
 <div class="jf-hero">
-  <h1>Your job command center</h1>
-  <p class="lead">Scrape sources, re-score against your profile, and work the list — same tools as the CLI, in one place.</p>
+  <h1>{{ ui.hero_title }}</h1>
+  <p class="lead">{{ ui.hero_subtitle }}</p>
 </div>
 
 <div class="dash-meta">
@@ -21,27 +21,27 @@
 <div class="kpi-grid">
   <a href="/jobs?sort=score" class="kpi-card accent kpi-card-link" title="Open all visible jobs">
     <div class="val">{{ total }}</div>
-    <div class="lbl">Visible jobs</div>
+    <div class="lbl">{{ ui.kpi_visible_label }}</div>
   </a>
   <a href="/jobs?applied_only=1&amp;sort=score" class="kpi-card kpi-card-link" title="Jobs you marked applied">
     <div class="val">{{ applied }}</div>
-    <div class="lbl">Applied</div>
+    <div class="lbl">{{ ui.kpi_applied_label }}</div>
   </a>
-  <a href="/jobs?min_score=40&amp;hide_applied=1&amp;sort=score" class="kpi-card warn kpi-card-link" title="Strong matches you have not applied to">
+  <a href="/jobs?min_score={{ ui.kpi_review_pct }}&amp;hide_applied=1&amp;sort=score" class="kpi-card warn kpi-card-link" title="Strong matches you have not applied to">
     <div class="val">{{ to_review }}</div>
-    <div class="lbl">To review (≥40%)</div>
+    <div class="lbl">{{ ui.kpi_to_review_label }} (≥{{ ui.kpi_review_pct }}%)</div>
   </a>
-  <a href="/jobs?min_score=50&amp;sort=score" class="kpi-card accent kpi-card-link" title="Very strong matches">
+  <a href="/jobs?min_score={{ ui.kpi_strong_pct }}&amp;sort=score" class="kpi-card accent kpi-card-link" title="Very strong matches">
     <div class="val">{{ high_match }}</div>
-    <div class="lbl">Strong (≥50%)</div>
+    <div class="lbl">{{ ui.kpi_strong_label }} (≥{{ ui.kpi_strong_pct }}%)</div>
   </a>
   <div class="kpi-card" title="Average match score across visible jobs">
     <div class="val">{{ "%.0f"|format(avg_score * 100) }}%</div>
-    <div class="lbl">Avg match</div>
+    <div class="lbl">{{ ui.kpi_avg_label }}</div>
   </div>
   <div class="kpi-card" title="Hidden from lists (not deleted)">
     <div class="val">{{ hidden_n }}</div>
-    <div class="lbl">Hidden</div>
+    <div class="lbl">{{ ui.kpi_hidden_label }}</div>
   </div>
 </div>
 
@@ -53,9 +53,9 @@
         <button type="button" class="primary js-scrape-disables" onclick="scrapeJobs()">Scrape all sources</button>
         <button type="button" class="outline" onclick="rescoreJobs()">Re-score all</button>
         <a href="/pipeline" role="button" class="outline">Pipeline &amp; automation</a>
-        <a href="/settings" role="button" class="outline secondary">Profile &amp; life story</a>
+        <a href="/settings" role="button" class="outline secondary">Settings</a>
       </div>
-      <p style="font-size:0.8rem;color:var(--jf-muted);margin:0.75rem 0 0">Scrape runs in the <strong>background</strong> — this page reloads in ~45s, or refresh manually. Uses <code>profile.yaml</code> queries, locations, and boards.</p>
+      <p style="font-size:0.8rem;color:var(--jf-muted);margin:0.75rem 0 0">{{ ui.actions_help | safe }}</p>
       <div id="scrape-status" class="status-toast"></div>
     </div>
 
@@ -72,7 +72,7 @@
     {% if search_queries %}
     <div class="panel">
       <h3>Active search terms</h3>
-      <p style="font-size:0.8rem;color:var(--jf-muted);margin:0 0 0.5rem">From <code>search.queries</code> — edit in Settings or <code>profile.yaml</code>.</p>
+      <p style="font-size:0.8rem;color:var(--jf-muted);margin:0 0 0.5rem">Managed in Settings.</p>
       <div class="query-chips-inline">
         {% for q in search_queries %}
         <span title="{{ q }}">{{ q[:42] }}{% if q|length > 42 %}…{% endif %}</span>
@@ -84,12 +84,9 @@
     <div class="panel">
       <h3>Jump to filtered lists</h3>
       <div class="preset-row">
-        <a href="/jobs?min_score=40&amp;sort=score&amp;hide_applied=1" role="button" class="jf-preset">≥40% not applied</a>
-        <a href="/jobs?min_score=60&amp;sort=score" role="button" class="jf-preset">≥60% matches</a>
-        <a href="/jobs?sort=date" role="button" class="jf-preset">Newest first</a>
-        <a href="/jobs?q=data+engineer&amp;sort=score" role="button" class="jf-preset">Search “data engineer”</a>
-        <a href="/jobs?applied_only=1" role="button" class="jf-preset">Applied history</a>
-        <a href="/jobs" role="button" class="jf-preset">All jobs</a>
+        {% for link in ui.quick_links %}
+        <a href="/jobs{% if link.query %}?{{ link.query }}{% endif %}" role="button" class="jf-preset">{{ link.label }}</a>
+        {% endfor %}
       </div>
     </div>
   </div>
@@ -110,7 +107,7 @@
 
     <div class="panel">
       <h3>Enabled boards</h3>
-      <p style="font-size:0.8rem;color:var(--jf-muted);margin:0 0 0.5rem"><code>search.boards</code></p>
+      <p style="font-size:0.8rem;color:var(--jf-muted);margin:0 0 0.5rem">Configured in Settings.</p>
       <div class="board-cloud">
         {% for b in enabled_boards %}
         <span class="board-badge board-{{ b }}">{{ b }}</span>
@@ -143,8 +140,8 @@
 
 {% if total == 0 %}
 <div class="empty-state">
-  <h3 style="color:#0f172a;margin-top:0">No jobs yet</h3>
-  <p>Click <strong>Scrape all sources</strong>, wait ~1–2 minutes, then refresh. For Adzuna / JSearch, add keys to <code>.env</code> (see <code>.env.example</code>).</p>
+  <h3 style="color:#0f172a;margin-top:0">{{ ui.empty_state_title }}</h3>
+  <div style="color:#475569">{{ ui.empty_state_body | safe }}</div>
 </div>
 {% else %}
 
@@ -193,7 +190,7 @@
 </div>
 
 <div style="text-align:center;margin-top:1.25rem">
-  <a href="/jobs?min_score=30&amp;sort=score" role="button">Browse all filtered jobs →</a>
+  <a href="/jobs?min_score={{ browse_min_pct }}&amp;sort=score" role="button">{{ ui.dashboard_footer_label }} →</a>
 </div>
 {% endif %}
 {% endblock %}

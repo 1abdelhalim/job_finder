@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}AI Apply{% endblock %}</title>
+    <title>{% block title %}{{ ui.brand_name }}{% endblock %}</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
     <style>
@@ -66,14 +66,14 @@
     <nav class="jf-nav">
         <ul>
             <li>
-                <a href="/" class="brand" style="text-decoration:none">AI Apply</a>
-                <span class="tagline">Job discovery &amp; matching</span>
+                <a href="/" class="brand" style="text-decoration:none">{{ ui.brand_name }}</a>
+                <span class="tagline">{{ ui.tagline }}</span>
             </li>
         </ul>
         <ul>
             <li><a href="/" {% if request.path == '/' %}aria-current="page"{% endif %}>Dashboard</a></li>
             <li><a href="/jobs" {% if request.path == '/jobs' %}aria-current="page"{% endif %}>All Jobs</a></li>
-            <li><a href="/jobs?min_score=40&amp;sort=score">Top matches</a></li>
+            <li><a href="/jobs?min_score={{ ui.nav_top_matches_pct }}&amp;sort=score">Top matches</a></li>
             <li><a href="/applications" {% if request.path == '/applications' %}aria-current="page"{% endif %}>Applications</a></li>
             <li><a href="/pipeline" {% if request.path == '/pipeline' %}aria-current="page"{% endif %}>Pipeline</a></li>
             <li><a href="/settings" {% if request.path == '/settings' %}aria-current="page"{% endif %}>Settings</a></li>
@@ -96,14 +96,6 @@
             if (boards) body.boards = boards;
             if (keywords) body.keywords = keywords;
             if (loc) body.location = loc;
-
-            // Get excluded boards from localStorage
-            const excludedBoards = JSON.parse(localStorage.getItem('excludedBoards') || '[]');
-            if (excludedBoards.length > 0) body.excluded_boards = excludedBoards;
-
-            // Get excluded countries from localStorage
-            const excludedCountries = JSON.parse(localStorage.getItem('excludedCountries') || '[]');
-            if (excludedCountries.length > 0) body.excluded_countries = excludedCountries;
 
             try {
                 const resp = await fetch('/api/scrape', {
