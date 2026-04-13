@@ -210,7 +210,7 @@ def get_new_jobs_since(since_iso: str, min_score: float = 0.0, db_path: Path = D
     conn = get_db(db_path)
     rows = conn.execute(
         """SELECT * FROM jobs
-           WHERE scraped_at > ? AND match_score >= ? AND hidden = 0
+           WHERE scraped_at > ? AND match_score >= ? AND match_score > 0 AND hidden = 0
            ORDER BY match_score DESC""",
         (since_iso, min_score),
     ).fetchall()
@@ -291,11 +291,14 @@ def zero_scores_for_jobs_not_in(ranked_urls: Set[str], db_path: Path = DB_PATH) 
 
 
 def get_top_jobs(limit: int = 20, min_score: float = 0.0, db_path: Path = DB_PATH) -> list[dict]:
-    """Get top-scored jobs from the database."""
+    """Get top-scored jobs from the database.
+
+    Rows with match_score 0 are omitted — those are cleared as not relevant to the current profile.
+    """
     conn = get_db(db_path)
     rows = conn.execute(
         """SELECT * FROM jobs
-           WHERE match_score >= ? AND hidden = 0
+           WHERE match_score >= ? AND match_score > 0 AND hidden = 0
            ORDER BY match_score DESC, CASE WHEN date_posted IS NULL OR date_posted = '' OR LOWER(date_posted) IN ('nan','nat','none','null') THEN 0 ELSE 1 END DESC, date_posted DESC
            LIMIT ?""",
         (min_score, limit),
