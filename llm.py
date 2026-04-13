@@ -3,22 +3,47 @@
 Model recommendations by hardware:
   - NVIDIA GPU (CUDA) or Apple Silicon (MPS): qwen3.5:9b  (~5 GB)
   - CPU only:                                 qwen2.5:3b  (~2 GB, runs on 8 GB RAM)
+
+Uses ``POST /api/chat`` first (current Ollama default), then ``POST /api/generate`` if the
+server returns 404 (some setups / versions). Override base URL with env ``OLLAMA_BASE`` or
+``OLLAMA_HOST`` (see `.env.example`).
 """
 
 import json
 import logging
+import os
 import platform
 import subprocess
 import time
+from pathlib import Path
 from typing import Optional, Dict, Any
 
 import requests
+from dotenv import load_dotenv
+
+load_dotenv(Path(__file__).parent / ".env")
 
 logger = logging.getLogger(__name__)
 
-OLLAMA_BASE = "http://localhost:11434"
 DEFAULT_MODEL = "qwen3.5:9b"
 CPU_MODEL = "qwen2.5:3b"
+
+
+def ollama_base() -> str:
+    """Base URL for Ollama HTTP API (no trailing slash)."""
+    explicit = (os.environ.get("OLLAMA_BASE") or "").strip()
+    if explicit:
+        return explicit.rstrip("/")
+    host = (os.environ.get("OLLAMA_HOST") or "").strip()
+    if host:
+        if host.startswith("http://") or host.startswith("https://"):
+            return host.rstrip("/")
+        return f"http://{host}".rstrip("/")
+    return "http://127.0.0.1:11434"
+
+
+# Backwards compatibility for imports of OLLAMA_BASE
+OLLAMA_BASE = ollama_base()
 
 
 def detect_hardware() -> str:
@@ -58,8 +83,9 @@ def recommend_model() -> str:
 
 def check_ollama_available() -> bool:
     """Check if Ollama server is running and responsive."""
+    base = ollama_base()
     try:
-        r = requests.get(f"{OLLAMA_BASE}/api/tags", timeout=5)
+        r = requests.get(f"{base}/api/tags", timeout=5)
         return r.status_code == 200
     except requests.ConnectionError:
         return False
@@ -67,13 +93,24 @@ def check_ollama_available() -> bool:
 
 def list_models() -> list:
     """List available Ollama models."""
+    base = ollama_base()
     try:
-        r = requests.get(f"{OLLAMA_BASE}/api/tags", timeout=5)
+        r = requests.get(f"{base}/api/tags", timeout=5)
         if r.status_code == 200:
             return [m["name"] for m in r.json().get("models", [])]
     except Exception:
         pass
     return []
+
+
+def _parse_ollama_body(data: dict) -> str:
+    """Normalize chat vs generate JSON response."""
+    if not data:
+        return ""
+    if "message" in data:
+        msg = data.get("message") or {}
+        return (msg.get("content") or "").strip()
+    return (data.get("response") or "").strip()
 
 
 def generate(
@@ -97,7 +134,22 @@ def generate(
     Returns:
         Generated text string.
     """
-    payload = {
+    base = ollama_base()
+    messages = []
+    if system:
+        messages.append({"role": "system", "content": system})
+    messages.append({"role": "user", "content": prompt})
+
+    chat_payload = {
+        "model": model,
+        "messages": messages,
+        "stream": False,
+        "options": {
+            "temperature": temperature,
+            "num_predict": max_tokens,
+        },
+    }
+    gen_payload = {
         "model": model,
         "prompt": prompt,
         "stream": False,
@@ -107,25 +159,33 @@ def generate(
         },
     }
     if system:
-        payload["system"] = system
+        gen_payload["system"] = system
 
-    logger.info("LLM generate: model=%s, prompt_len=%d", model, len(prompt))
+    logger.info("LLM generate: model=%s, prompt_len=%d, base=%s", model, len(prompt), base)
     start = time.time()
 
     try:
-        r = requests.post(
-            f"{OLLAMA_BASE}/api/generate",
-            json=payload,
-            timeout=timeout,
-        )
+        r = requests.post(f"{base}/api/chat", json=chat_payload, timeout=timeout)
+        if r.status_code == 404:
+            logger.info("Ollama /api/chat returned 404; trying /api/generate")
+            r = requests.post(f"{base}/api/generate", json=gen_payload, timeout=timeout)
         r.raise_for_status()
         result = r.json()
-        text = result.get("response", "")
+        text = _parse_ollama_body(result)
         elapsed = time.time() - start
         logger.info("LLM response: %d chars in %.1fs", len(text), elapsed)
         return text.strip()
     except requests.Timeout:
         logger.error("LLM request timed out after %ds", timeout)
+        raise
+    except requests.HTTPError as e:
+        logger.error(
+            "LLM HTTP error: %s. Ollama base: %s — run `ollama serve` and `ollama pull %s`. "
+            "If Ollama is not on localhost, set OLLAMA_BASE (or OLLAMA_HOST) in .env.",
+            e,
+            base,
+            model,
+        )
         raise
     except requests.RequestException as e:
         logger.error("LLM request failed: %s", e)
