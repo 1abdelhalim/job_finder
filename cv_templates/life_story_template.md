@@ -1,158 +1,71 @@
-# Life Story — YOUR FULL NAME
+# Life Story — [Your Full Name]
 
-This is the **master source of truth** for all CV and website content.
-Fill in everything here — raw, detailed, and unfiltered.
-The system reads this file to generate a tailored CV and cover letter for each job.
+Fill this in as the **master source of truth** for matching, tailored CVs, and cover letters. The matcher uses embeddings from this file; be specific about tools, scale, and outcomes.
 
 ---
 
 ## Personal Info
 
-- **Full Name:** YOUR FULL NAME
-- **Email:** your.email@example.com
-- **Location:** City, Country
-- **LinkedIn:** https://www.linkedin.com/in/YOUR-PROFILE/
-- **GitHub:** https://github.com/YOUR-USERNAME  (remove if not applicable)
-- **Website:** https://your-website.com  (remove if not applicable)
-- **Google Scholar:** https://scholar.google.com/  (remove if not applicable)
-- **Nationality:** YOUR NATIONALITY
-- **Languages:** English (fluent), [add others]
+- **Full Name:**
+- **Email:**
+- **Phone:**
+- **Location (city, country):**
+- **LinkedIn:**
+- **GitHub:**
 
 ---
 
-## Professional Summary / Identity
+## Professional Summary
 
-Write 2–4 sentences describing who you are professionally: your main domain, key technologies,
-what kind of problems you like to solve, and what kind of role you are targeting.
-
-Example:
-> I am a software engineer with 5 years of experience building distributed backend systems.
-> I specialize in Go and Python, with a focus on high-throughput data pipelines and cloud-native
-> infrastructure. I have shipped production systems at scale and enjoy bridging research and
-> real-world engineering.
+Write 3–6 sentences: your role (e.g. Data Engineer / Analytics Engineer), years of experience, **domains** (e.g. marketplace, analytics, batch/streaming), **scale** (users, volume), and **stack** (Python, SQL, cloud, orchestration, warehouse). State what roles you want next (e.g. remote, Egypt, visa sponsorship).
 
 ---
 
 ## Work Experience
 
-For each position, include:
-- Title, Company, Location, Dates
-- What the company does (1 sentence)
-- Key responsibilities and specific achievements (with numbers/metrics where possible)
-- Technologies used
+For each role, include: company context, dates, **measurable outcomes** (latency, cost, accuracy, % improvement), and **technologies**.
 
-### Job Title — Company Name, City, Country
-**Month YEAR – Month YEAR (or Present)**
+### Job Title — Company, Location
+**Start – End**
 
-Company description: [1 sentence about what the company does]
+- Bullet: problem → action → **metric**
+- Stack: …
 
-**Key responsibilities and achievements:**
-- Achievement 1 (with quantitative metric if possible, e.g., "reduced latency by 40%")
-- Achievement 2
-- Achievement 3
-- ...
-
-**Technologies:** Python, Docker, Kubernetes, PostgreSQL, ...
-
----
-
-### Job Title — Company Name, City, Country
-**Month YEAR – Month YEAR**
-
-[Repeat for each position]
-
----
-
-## Education
-
-### Degree — University Name, City, Country
-**Month YEAR – Month YEAR**
-
-- GPA: X.X/X.X (or equivalent)
-- Thesis: "Thesis Title" — brief description
-- Relevant coursework: ...
-- Scholarships / awards: ...
-- Teaching Assistant roles (if any): ...
-
----
-
-### Degree — University Name, City, Country
-**Month YEAR – Month YEAR**
-
-[Repeat for each degree]
-
----
-
-## Publications  (remove this section if not applicable)
-
-### Paper Title
-**YOUR NAME**, Co-Author 1, Co-Author 2, ...
-- Published at: Conference/Journal Name YEAR
-- Paper: https://link-to-paper
-- Code: https://github.com/... (if available)
-- Key contributions: ...
+*(Repeat for each position.)*
 
 ---
 
 ## Projects
 
-For each project, include the name, what it does, technologies used, and a link if public.
-
-### Project Name
-- What it does: brief description
-- Technologies: ...
-- Code: https://github.com/... (if public)
+### Project name
+- Goal and outcome
+- Stack and links if public
 
 ---
 
-## Skills
+## Education
 
-### Programming Languages
-- **Language** — Proficiency level. Notes on how/where you use it.
+### Degree — School, Location
+**Years**
 
-### Frameworks & Libraries
-- ...
-
-### Tools & Infrastructure
-- ...
-
-### Domain-Specific Skills
-- ...
-
-### Soft Skills
-- ...
+- Honors, coursework, thesis if relevant
 
 ---
 
-## Awards & Achievements
+## Technical Skills
 
-- **Award Name** — Year — Brief description
-- ...
-
----
-
-## Teaching Experience  (remove if not applicable)
-
-| Date | Role | Institution | Subject |
-|------|------|-------------|---------|
-| YEAR | Teaching Assistant | University Name | Course Name |
+Group by: **Languages**, **Data / warehouse**, **Orchestration / transformation**, **Cloud**, **Tools**, **Domain** (e.g. analytics, events, scraping).
 
 ---
 
-## Personal Interests  (optional)
+## Certifications & Achievements
 
-- Hobby 1
-- Hobby 2
-- ...
+- List certifications, contests, notable awards
 
 ---
 
 ## Notes for CV Customization
 
-When targeting **[role type A]** roles:
-- Lead with [specific experience/publication]
-- Emphasize [technology/skill]
+When targeting **Data Engineer / Analytics Engineer** roles, emphasize: pipelines, warehouses, SQL, orchestration (Airflow/dbt), cloud data services, and **metrics**.
 
-When targeting **[role type B]** roles:
-- Lead with [specific experience/publication]
-- Emphasize [technology/skill]
+When targeting **data platform / infrastructure**, emphasize: reliability, idempotency, observability, cost/latency.

@@ -65,13 +65,16 @@ DATA_ENGINEERING_KEYWORDS = {
     "data warehouse", "data warehousing", "data pipeline", "data pipelines",
     "data product engineer", "data product", "product data engineer",
     "dbt", "snowflake", "databricks", "apache spark", "pyspark", "spark",
-    "big data", "hadoop", "hive", "airflow", "prefect", "dagster", "data lake",
+    "big data", "hadoop", "hive", "airflow", "apache airflow", "prefect", "dagster", "data lake",
     "lakehouse", "delta lake", "iceberg", "kafka", "data platform",
     "data infrastructure", "business intelligence", "bi developer", "bi engineer",
     "power bi", "tableau", "looker", "data integration", "data modeling",
     "fivetran", "stitch", "matillion", "data quality", "data governance",
     "data mesh", "streaming data", "redshift", "bigquery", "synapse",
     "metrics engineer", "reporting engineer", "data analyst engineer",
+    "postgresql", "postgres", "timescaledb", "time series",
+    "aws lambda", "amazon lambda", "dynamodb", "eventbridge",
+    "fastapi", "backend data",
 }
 
 # Keywords that indicate a strong specialty match for Ahmed's specific background.
