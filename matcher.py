@@ -60,8 +60,10 @@ AI_KEYWORDS = {
 
 # Data engineering / analytics — used when profile has career_track: data_engineering
 DATA_ENGINEERING_KEYWORDS = {
-    "data engineer", "data engineering", "analytics engineer", "etl", "elt",
+    "data engineer", "data engineering", "analytics engineer", "analytics engineering",
+    "etl", "elt",
     "data warehouse", "data warehousing", "data pipeline", "data pipelines",
+    "data product engineer", "data product", "product data engineer",
     "dbt", "snowflake", "databricks", "apache spark", "pyspark", "spark",
     "big data", "hadoop", "hive", "airflow", "prefect", "dagster", "data lake",
     "lakehouse", "delta lake", "iceberg", "kafka", "data platform",
@@ -69,6 +71,7 @@ DATA_ENGINEERING_KEYWORDS = {
     "power bi", "tableau", "looker", "data integration", "data modeling",
     "fivetran", "stitch", "matillion", "data quality", "data governance",
     "data mesh", "streaming data", "redshift", "bigquery", "synapse",
+    "metrics engineer", "reporting engineer", "data analyst engineer",
 }
 
 # Keywords that indicate a strong specialty match for Ahmed's specific background.
@@ -108,12 +111,17 @@ def is_data_engineering_related(job: Job) -> bool:
 
 
 def is_job_relevant(job: Job, profile: dict) -> bool:
-    """Include job in matching if it fits AI/ML track or optional data-engineering track."""
-    if is_ai_related(job):
-        return True
+    """Include job in matching: AI/ML track by default, or data-engineering-only when configured."""
     track = (profile.get("career_track") or "").strip().lower()
     if track in ("data_engineering", "data_engineer", "de"):
-        return is_data_engineering_related(job)
+        # When exclusive (default True), do NOT admit generic ML/AI/CV roles — only DE/analytics signals.
+        exclusive = profile.get("career_track_exclusive", True)
+        if exclusive:
+            return is_data_engineering_related(job)
+        return is_ai_related(job) or is_data_engineering_related(job)
+
+    if is_ai_related(job):
+        return True
     return False
 
 

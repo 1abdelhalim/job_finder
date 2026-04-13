@@ -98,9 +98,12 @@ preferred_locations:
 remote_preferred: true
 
 # --- Career track (optional) ---
-# Set to "data_engineering" to include data / analytics engineering roles that are not
-# caught by the default AI/ML/CV keyword prefilter. Omit for ML-only matching.
+# Set to "data_engineering" to focus on data / analytics / data product engineering.
+# career_track_exclusive: true (default) = do NOT include generic ML/AI/CV-only roles
+#   (e.g. "Machine Learning Engineer" with no warehouse/pipeline/DE keywords).
+# Set career_track_exclusive: false if you also want classic ML/AI jobs in the same search.
 # career_track: "data_engineering"
+# career_track_exclusive: true
 
 # --- Location policy (optional hard filter) ---
 # When disabled (default), all scored jobs can be stored. When enabled, only jobs that
