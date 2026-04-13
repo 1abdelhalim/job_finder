@@ -1,110 +1,122 @@
 {% extends "base.html" %}
-{% block title %}AI Apply — Jobs{% endblock %}
+{% block title %}All jobs — AI Apply{% endblock %}
 {% block content %}
-<h2>All Jobs <small style="opacity:0.6">({{ total }})</small></h2>
+<div class="jf-hero" style="margin-bottom:1rem">
+  <h1 style="font-size:1.5rem">All jobs</h1>
+  <p class="lead">{{ total }} listing{{ 's' if total != 1 else '' }} match your filters</p>
+</div>
 
-<form class="filter-bar" method="get" action="/jobs">
+<form class="filters-panel" method="get" action="/jobs" id="jobs-filter-form">
+  <div class="filter-grid">
     <div>
-        <label for="q">Search</label>
-        <input type="text" name="q" id="q" value="{{ search }}" placeholder="Title, company...">
+      <label for="q">Search</label>
+      <input type="search" name="q" id="q" value="{{ search }}" placeholder="Title, company, description…" autocomplete="off">
     </div>
     <div>
-        <label for="board">Source</label>
-        <select name="board" id="board">
-            <option value="">All</option>
-            {% for b in boards %}
-            <option value="{{ b }}" {% if board_filter == b %}selected{% endif %}>{{ b }}</option>
-            {% endfor %}
-        </select>
+      <label for="board">Source</label>
+      <select name="board" id="board">
+        <option value="">All boards</option>
+        {% for b in boards %}
+        <option value="{{ b }}" {% if board_filter == b %}selected{% endif %}>{{ b }}</option>
+        {% endfor %}
+      </select>
     </div>
     <div>
-        <label for="country">Country</label>
-        <select name="country" id="country">
-            <option value="">All</option>
-            {% for c in countries %}
-            <option value="{{ c }}" {% if country_filter == c %}selected{% endif %}>{{ c }}</option>
-            {% endfor %}
-        </select>
+      <label for="country">Location contains</label>
+      <select name="country" id="country">
+        <option value="">Any</option>
+        {% for c in countries %}
+        <option value="{{ c }}" {% if country_filter == c %}selected{% endif %}>{{ c }}</option>
+        {% endfor %}
+      </select>
     </div>
     <div>
-        <label for="min_score">Min Score (%)</label>
-        <input type="number" name="min_score" id="min_score" value="{{ "%.0f"|format(min_score * 100) }}"
-               min="0" max="100" step="5" placeholder="0" style="width:5rem">
+      <label for="min_score">Min match (%)</label>
+      <input type="number" name="min_score" id="min_score" min="0" max="100" step="5"
+             value="{% if min_score <= 1 %}{{ '%.0f'|format(min_score * 100) }}{% else %}{{ '%.0f'|format(min_score) }}{% endif %}"
+             placeholder="0" style="width:100%">
     </div>
     <div>
-        <label for="sort">Sort</label>
-        <select name="sort" id="sort">
-            <option value="score" {% if sort == 'score' %}selected{% endif %}>Match Score</option>
-            <option value="date" {% if sort == 'date' %}selected{% endif %}>Date Posted</option>
-            <option value="company" {% if sort == 'company' %}selected{% endif %}>Company</option>
-            <option value="title" {% if sort == 'title' %}selected{% endif %}>Title</option>
-        </select>
+      <label for="sort">Sort by</label>
+      <select name="sort" id="sort">
+        <option value="score" {% if sort == 'score' %}selected{% endif %}>Match score</option>
+        <option value="date" {% if sort == 'date' %}selected{% endif %}>Date posted</option>
+        <option value="company" {% if sort == 'company' %}selected{% endif %}>Company</option>
+        <option value="title" {% if sort == 'title' %}selected{% endif %}>Job title</option>
+      </select>
     </div>
-    <div>
-        <label>&nbsp;</label>
-        <button type="submit">Filter</button>
-    </div>
+  </div>
+  <div class="filter-actions">
+    <button type="submit">Apply filters</button>
+    <a href="/jobs" role="button" class="outline secondary">Clear</a>
+    <label style="display:inline-flex;align-items:center;gap:0.4rem;margin:0;cursor:pointer">
+      <input type="checkbox" name="hide_applied" value="1" {% if hide_applied %}checked{% endif %}
+             onchange="this.form.submit()">
+      <span style="font-size:0.9rem">Hide applied</span>
+    </label>
+  </div>
 </form>
 
 {% if jobs %}
 <div>
-    {% for job in jobs %}
-    <div class="job-row">
-        <div style="display:flex;justify-content:space-between;align-items:start">
-            <div>
-                <span class="score-badge {% if job.match_score >= 0.7 %}score-excellent{% elif job.match_score >= 0.4 %}score-good{% elif job.match_score >= 0.2 %}score-fair{% else %}score-low{% endif %}">
-                    {{ "%.0f"|format(job.match_score * 100) }}%
-                </span>
-                <span class="board-badge board-{{ job.board }}">{{ job.board }}</span>
-                {% if job.applied %}<span class="applied-badge">Applied</span>{% endif %}
-            </div>
-            <div class="btn-group">
-                <a href="/job?url={{ job.url | urlencode }}" class="btn-sm outline" role="button">Details</a>
-                <button class="btn-sm" style="background:#88AC0B;border-color:#88AC0B;color:#fff" onclick="generateApplication('{{ job.url }}')">Generate</button>
-                <button class="btn-sm outline" onclick="markApplied('{{ job.url }}')">Applied</button>
-                <button class="btn-sm outline secondary" onclick="hideJob('{{ job.url }}')">Hide</button>
-            </div>
-        </div>
-        <div class="job-title">
-            <a href="{{ job.url }}" target="_blank">{{ job.title }}</a>
-        </div>
-        <div class="job-meta">
-            {{ job.company }} &middot; {{ job.location }}
-            {% if job.salary %} &middot; <span class="salary">{{ job.salary }}</span>{% endif %}
-            {% if job.date_posted %} &middot; {{ job.date_posted[:10] }}{% endif %}
-        </div>
-        {% if job.match_details.skills_matched %}
-        <div class="skills-list">
-            {% for s in job.match_details.skills_matched[:10] %}
-            <span class="skill-tag">{{ s }}</span>
-            {% endfor %}
-        </div>
-        {% endif %}
-        {% if job.description %}
-        <div class="desc-preview">{{ job.description[:500] }}{% if job.description|length > 500 %}...{% endif %}</div>
-        {% if job.description|length > 150 %}
-        <button class="see-more-btn" onclick="toggleDescription(this)">See more</button>
-        {% endif %}
-        {% endif %}
+  {% for job in jobs %}
+  <div class="job-card">
+    <div class="job-head">
+      <div>
+        <span class="score-badge {% if job.match_score >= 0.7 %}score-excellent{% elif job.match_score >= 0.4 %}score-good{% elif job.match_score >= 0.2 %}score-fair{% else %}score-low{% endif %}">
+          {{ "%.0f"|format(job.match_score * 100) }}%
+        </span>
+        <span class="board-badge board-{{ job.board }}">{{ job.board }}</span>
+        {% if job.applied %}<span class="applied-badge">Applied</span>{% endif %}
+      </div>
+      <div class="btn-group">
+        <a href="/job?url={{ job.url|urlencode }}" class="btn-sm outline" role="button">Details</a>
+        <button type="button" class="btn-sm" style="background:#0f766e;border-color:#0f766e;color:#fff" onclick="generateApplication({{ job.url|tojson }}, this)">Generate</button>
+        <button type="button" class="btn-sm outline" onclick="markApplied({{ job.url|tojson }})">Applied</button>
+        <button type="button" class="btn-sm outline secondary" onclick="hideJob({{ job.url|tojson }})">Hide</button>
+      </div>
     </div>
-    {% endfor %}
+    <div class="job-title">
+      <a href="{{ job.url }}" target="_blank" rel="noopener">{{ job.title }}</a>
+    </div>
+    <div class="job-meta">
+      {{ job.company }} · {{ job.location }}
+      {% if job.salary %} · <span class="salary">{{ job.salary }}</span>{% endif %}
+      {% if job.date_posted %} · {{ job.date_posted[:10] }}{% endif %}
+    </div>
+    {% if job.match_details.skills_matched %}
+    <div class="skills-list">
+      {% for s in job.match_details.skills_matched[:10] %}
+      <span class="skill-tag">{{ s }}</span>
+      {% endfor %}
+    </div>
+    {% endif %}
+    {% if job.description %}
+    <div class="desc-preview">{{ job.description[:500] }}{% if job.description|length > 500 %}…{% endif %}</div>
+    {% if job.description|length > 150 %}
+    <button type="button" class="see-more-btn" onclick="toggleDescription(this)">See more</button>
+    {% endif %}
+    {% endif %}
+  </div>
+  {% endfor %}
 </div>
 
 {% if total_pages > 1 %}
-<div class="pagination">
-    {% if page > 1 %}
-    <a href="?page={{ page - 1 }}&board={{ board_filter }}&country={{ country_filter }}&min_score={{ min_score }}&q={{ search }}&sort={{ sort }}" role="button" class="outline">&laquo; Prev</a>
-    {% endif %}
-    <span style="padding:0.5rem">Page {{ page }} / {{ total_pages }}</span>
-    {% if page < total_pages %}
-    <a href="?page={{ page + 1 }}&board={{ board_filter }}&country={{ country_filter }}&min_score={{ min_score }}&q={{ search }}&sort={{ sort }}" role="button" class="outline">Next &raquo;</a>
-    {% endif %}
+<div class="pagination" style="margin-top:1.25rem">
+  {% if prev_url %}
+  <a href="{{ prev_url }}" role="button" class="outline">&laquo; Previous</a>
+  {% endif %}
+  <span style="padding:0.5rem 0.75rem;font-size:0.9rem">Page {{ page }} / {{ total_pages }}</span>
+  {% if next_url %}
+  <a href="{{ next_url }}" role="button" class="outline">Next &raquo;</a>
+  {% endif %}
 </div>
 {% endif %}
 
 {% else %}
-<article style="text-align:center;padding:2rem">
-    <p>No jobs match your filters.</p>
-</article>
+<div class="empty-state">
+  <p><strong>No jobs match these filters.</strong></p>
+  <p style="margin:0.5rem 0 0;font-size:0.9rem">Try lowering the minimum score, clearing search, or <a href="/">running a scrape</a>.</p>
+</div>
 {% endif %}
 {% endblock %}

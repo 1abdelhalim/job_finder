@@ -4,6 +4,7 @@ import json
 import logging
 import threading
 from pathlib import Path
+from urllib.parse import urlencode
 
 import yaml
 from dotenv import load_dotenv
@@ -36,10 +37,20 @@ def create_app():
     @app.route("/")
     def dashboard():
         """Main dashboard showing stats and top jobs."""
+        profile = load_profile()
+        enabled_boards = profile.get("search", {}).get("boards") or list(SCRAPERS.keys())
+
         conn = get_db()
         total = conn.execute("SELECT COUNT(*) FROM jobs WHERE hidden = 0").fetchone()[0]
         applied = conn.execute("SELECT COUNT(*) FROM jobs WHERE applied = 1").fetchone()[0]
         avg_score = conn.execute("SELECT AVG(match_score) FROM jobs WHERE hidden = 0").fetchone()[0] or 0
+        hidden_n = conn.execute("SELECT COUNT(*) FROM jobs WHERE hidden = 1").fetchone()[0]
+        high_match = conn.execute(
+            "SELECT COUNT(*) FROM jobs WHERE hidden = 0 AND match_score >= 0.5"
+        ).fetchone()[0]
+        to_review = conn.execute(
+            "SELECT COUNT(*) FROM jobs WHERE hidden = 0 AND applied = 0 AND match_score >= 0.4"
+        ).fetchone()[0]
 
         # Board distribution
         boards = conn.execute(
@@ -59,9 +70,18 @@ def create_app():
             j["match_details"] = json.loads(j.get("match_details", "{}"))
             jobs.append(j)
 
-        return render_template("dashboard.html",
-            total=total, applied=applied, avg_score=round(avg_score, 2),
-            boards=[dict(b) for b in boards], jobs=jobs)
+        return render_template(
+            "dashboard.html",
+            total=total,
+            applied=applied,
+            avg_score=round(avg_score, 3),
+            hidden_n=hidden_n,
+            high_match=high_match,
+            to_review=to_review,
+            boards=[dict(b) for b in boards],
+            jobs=jobs,
+            enabled_boards=enabled_boards,
+        )
 
     @app.route("/jobs")
     def jobs_list():
@@ -76,10 +96,13 @@ def create_app():
         min_score = min_score_raw / 100.0 if min_score_raw > 1 else min_score_raw
         search = request.args.get("q", "")
         sort = request.args.get("sort", "score")  # score, date, company
+        hide_applied = request.args.get("hide_applied", "") == "1"
 
         conn = get_db()
         where = ["hidden = 0"]
         params = []
+        if hide_applied:
+            where.append("applied = 0")
         if board_filter:
             where.append("board = ?")
             params.append(board_filter)
@@ -134,12 +157,32 @@ def create_app():
             jobs.append(j)
 
         total_pages = (total + per_page - 1) // per_page
+        if total_pages < 1:
+            total_pages = 1
 
-        return render_template("jobs.html",
-            jobs=jobs, page=page, total_pages=total_pages, total=total,
-            board_filter=board_filter, country_filter=country_filter,
-            min_score=min_score, search=search, sort=sort,
-            boards=[b.value for b in JobBoard], countries=countries)
+        qargs = request.args.to_dict()
+        qargs["page"] = str(max(1, page - 1))
+        prev_url = "/jobs?" + urlencode(qargs, doseq=True) if page > 1 else None
+        qargs["page"] = str(page + 1)
+        next_url = "/jobs?" + urlencode(qargs, doseq=True) if page < total_pages else None
+
+        return render_template(
+            "jobs.html",
+            jobs=jobs,
+            page=page,
+            total_pages=total_pages,
+            total=total,
+            board_filter=board_filter,
+            country_filter=country_filter,
+            min_score=min_score,
+            search=search,
+            sort=sort,
+            hide_applied=hide_applied,
+            prev_url=prev_url,
+            next_url=next_url,
+            boards=[b.value for b in JobBoard],
+            countries=countries,
+        )
 
     @app.route("/job")
     def job_detail():

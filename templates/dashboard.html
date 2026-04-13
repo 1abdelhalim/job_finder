@@ -1,103 +1,151 @@
 {% extends "base.html" %}
-{% block title %}AI Apply — Dashboard{% endblock %}
+{% block title %}Dashboard — AI Apply{% endblock %}
 {% block content %}
-<h2>Dashboard</h2>
-
-<div class="stats-grid">
-    <div class="stat-card">
-        <div class="value">{{ total }}</div>
-        <div class="label">Total Jobs</div>
-    </div>
-    <div class="stat-card">
-        <div class="value">{{ applied }}</div>
-        <div class="label">Applied</div>
-    </div>
-    <div class="stat-card">
-        <div class="value">{{ avg_score }}</div>
-        <div class="label">Avg Match Score</div>
-    </div>
-    <div class="stat-card">
-        <div class="value">{{ boards|length }}</div>
-        <div class="label">Active Sources</div>
-    </div>
+<div class="jf-hero">
+  <h1>Your job command center</h1>
+  <p class="lead">Scrape sources, re-score against your profile, and work the list — same tools as the CLI, in one place.</p>
 </div>
 
-{% if boards %}
-<details open>
-    <summary>Jobs by Source</summary>
-    <div style="display:flex;gap:1rem;flex-wrap:wrap;margin-top:0.5rem">
-        {% for b in boards %}
-        <span class="board-badge board-{{ b.board }}">{{ b.board }}: {{ b.cnt }}</span>
+<div class="kpi-grid">
+  <div class="kpi-card accent">
+    <div class="val">{{ total }}</div>
+    <div class="lbl">Visible jobs</div>
+  </div>
+  <div class="kpi-card">
+    <div class="val">{{ applied }}</div>
+    <div class="lbl">Applied</div>
+  </div>
+  <div class="kpi-card warn">
+    <div class="val">{{ to_review }}</div>
+    <div class="lbl">To review (≥40%)</div>
+  </div>
+  <div class="kpi-card accent">
+    <div class="val">{{ high_match }}</div>
+    <div class="lbl">Strong (≥50%)</div>
+  </div>
+  <div class="kpi-card">
+    <div class="val">{{ "%.0f"|format(avg_score * 100) }}%</div>
+    <div class="lbl">Avg match</div>
+  </div>
+  <div class="kpi-card">
+    <div class="val">{{ hidden_n }}</div>
+    <div class="lbl">Hidden</div>
+  </div>
+</div>
+
+<div class="layout-split cols-2">
+  <div>
+    <div class="panel">
+      <h3>Actions</h3>
+      <div class="action-toolbar">
+        <button type="button" class="primary" onclick="scrapeJobs()">Scrape all sources</button>
+        <button type="button" class="outline" onclick="rescoreJobs()">Re-score all</button>
+        <a href="/pipeline" role="button" class="outline">Pipeline &amp; automation</a>
+        <a href="/settings" role="button" class="outline secondary">Profile &amp; life story</a>
+      </div>
+      <p style="font-size:0.8rem;color:var(--jf-muted);margin:0.75rem 0 0">Scrape uses queries &amp; boards from <code>profile.yaml</code>. Large runs can take several minutes.</p>
+      <div id="scrape-status" class="status-toast"></div>
+    </div>
+
+    <div class="panel">
+      <h3>Quick source scrape</h3>
+      <p style="font-size:0.85rem;color:var(--jf-muted);margin-top:0">Run a single board (still respects your profile keywords &amp; locations).</p>
+      <div class="quick-scrape" style="margin-top:0.65rem">
+        {% for b in enabled_boards[:16] %}
+        <button type="button" class="outline secondary" onclick="scrapeJobs([{{ b|tojson }}])">{{ b }}</button>
         {% endfor %}
+      </div>
     </div>
-</details>
-{% endif %}
 
-<div style="display:flex;gap:0.5rem;margin:1.5rem 0;flex-wrap:wrap">
-    <button onclick="scrapeJobs()" class="outline">Scrape All Sources</button>
-    <button onclick="scrapeJobs(['remotive'])" class="outline secondary">Remotive Only</button>
-    <button onclick="scrapeJobs(['adzuna'])" class="outline secondary">Adzuna Only</button>
-    <button onclick="scrapeJobs(['linkedin'])" class="outline secondary">LinkedIn Only</button>
-    <button onclick="rescoreJobs()" class="outline contrast">Re-score All</button>
+    <div class="panel">
+      <h3>Jump to filtered lists</h3>
+      <div class="preset-row">
+        <a href="/jobs?min_score=40&amp;sort=score&amp;hide_applied=1" role="button" class="jf-preset">≥40% not applied</a>
+        <a href="/jobs?min_score=60&amp;sort=score" role="button" class="jf-preset">≥60% matches</a>
+        <a href="/jobs?sort=date" role="button" class="jf-preset">Newest first</a>
+        <a href="/jobs?q=data+engineer&amp;sort=score" role="button" class="jf-preset">Search “data engineer”</a>
+        <a href="/jobs" role="button" class="jf-preset">All jobs</a>
+      </div>
+    </div>
+  </div>
+
+  <aside>
+    <div class="panel">
+      <h3>Sources in database</h3>
+      {% if boards %}
+      <div class="board-cloud">
+        {% for b in boards %}
+        <a href="/jobs?board={{ b.board }}&amp;sort=score" class="board-badge board-{{ b.board }}" style="text-decoration:none">{{ b.board }} · {{ b.cnt }}</a>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p style="color:var(--jf-muted);font-size:0.9rem;margin:0">No data yet — run a scrape.</p>
+      {% endif %}
+    </div>
+    <div class="panel">
+      <h3>Enabled in profile</h3>
+      <p style="font-size:0.8rem;color:var(--jf-muted);margin:0 0 0.5rem">Boards from <code>search.boards</code>:</p>
+      <div class="board-cloud">
+        {% for b in enabled_boards %}
+        <span class="board-badge board-{{ b }}">{{ b }}</span>
+        {% endfor %}
+      </div>
+    </div>
+  </aside>
 </div>
-<div id="scrape-status"></div>
 
 {% if total == 0 %}
-<article style="text-align:center;padding:3rem">
-    <h3>No jobs yet</h3>
-    <p>Click "Scrape All Sources" to start finding jobs, or set your API keys first:</p>
-    <pre style="text-align:left;max-width:500px;margin:1rem auto">
-export ADZUNA_APP_ID="your_app_id"
-export ADZUNA_APP_KEY="your_app_key"
-export RAPIDAPI_KEY="your_key"</pre>
-    <p><small>Remotive and LinkedIn (guest) work without API keys.</small></p>
-</article>
+<div class="empty-state">
+  <h3 style="color:#0f172a;margin-top:0">No jobs yet</h3>
+  <p>Run <strong>Scrape all sources</strong>, then refresh. For Adzuna / JSearch, add keys to <code>.env</code> (see <code>.env.example</code>).</p>
+</div>
 {% else %}
 
-<h3>Top Matches</h3>
+<h3 style="margin-top:1.5rem">Top matches</h3>
 <div>
-    {% for job in jobs %}
-    <div class="job-row">
-        <div style="display:flex;justify-content:space-between;align-items:start">
-            <div>
-                <span class="score-badge {% if job.match_score >= 0.7 %}score-excellent{% elif job.match_score >= 0.4 %}score-good{% elif job.match_score >= 0.2 %}score-fair{% else %}score-low{% endif %}">
-                    {{ "%.0f"|format(job.match_score * 100) }}%
-                </span>
-                <span class="board-badge board-{{ job.board }}">{{ job.board }}</span>
-                {% if job.applied %}<span class="applied-badge">Applied</span>{% endif %}
-            </div>
-            <div class="btn-group">
-                <button class="btn-sm outline" onclick="markApplied('{{ job.url }}')">Applied</button>
-                <button class="btn-sm outline secondary" onclick="hideJob('{{ job.url }}')">Hide</button>
-            </div>
-        </div>
-        <div class="job-title">
-            <a href="{{ job.url }}" target="_blank">{{ job.title }}</a>
-        </div>
-        <div class="job-meta">
-            {{ job.company }} &middot; {{ job.location }}
-            {% if job.salary %} &middot; <span class="salary">{{ job.salary }}</span>{% endif %}
-            {% if job.date_posted %} &middot; {{ job.date_posted[:10] }}{% endif %}
-        </div>
-        {% if job.match_details.skills_matched %}
-        <div class="skills-list">
-            {% for s in job.match_details.skills_matched[:8] %}
-            <span class="skill-tag">{{ s }}</span>
-            {% endfor %}
-        </div>
-        {% endif %}
-        {% if job.description %}
-        <div class="desc-preview">{{ job.description[:500] }}{% if job.description|length > 500 %}...{% endif %}</div>
-        {% if job.description|length > 150 %}
-        <button class="see-more-btn" onclick="toggleDescription(this)">See more</button>
-        {% endif %}
-        {% endif %}
+  {% for job in jobs %}
+  <div class="job-card">
+    <div class="job-head">
+      <div>
+        <span class="score-badge {% if job.match_score >= 0.7 %}score-excellent{% elif job.match_score >= 0.4 %}score-good{% elif job.match_score >= 0.2 %}score-fair{% else %}score-low{% endif %}">
+          {{ "%.0f"|format(job.match_score * 100) }}%
+        </span>
+        <span class="board-badge board-{{ job.board }}">{{ job.board }}</span>
+        {% if job.applied %}<span class="applied-badge">Applied</span>{% endif %}
+      </div>
+      <div class="btn-group">
+        <a href="/job?url={{ job.url|urlencode }}" class="btn-sm outline" role="button">Details</a>
+        <button type="button" class="btn-sm outline" onclick="markApplied({{ job.url|tojson }})">Applied</button>
+        <button type="button" class="btn-sm outline secondary" onclick="hideJob({{ job.url|tojson }})">Hide</button>
+      </div>
     </div>
-    {% endfor %}
+    <div class="job-title">
+      <a href="{{ job.url }}" target="_blank" rel="noopener">{{ job.title }}</a>
+    </div>
+    <div class="job-meta">
+      {{ job.company }} · {{ job.location }}
+      {% if job.salary %} · <span class="salary">{{ job.salary }}</span>{% endif %}
+      {% if job.date_posted %} · {{ job.date_posted[:10] }}{% endif %}
+    </div>
+    {% if job.match_details.skills_matched %}
+    <div class="skills-list">
+      {% for s in job.match_details.skills_matched[:8] %}
+      <span class="skill-tag">{{ s }}</span>
+      {% endfor %}
+    </div>
+    {% endif %}
+    {% if job.description %}
+    <div class="desc-preview">{{ job.description[:500] }}{% if job.description|length > 500 %}…{% endif %}</div>
+    {% if job.description|length > 150 %}
+    <button type="button" class="see-more-btn" onclick="toggleDescription(this)">See more</button>
+    {% endif %}
+    {% endif %}
+  </div>
+  {% endfor %}
 </div>
 
-<div style="text-align:center;margin-top:1rem">
-    <a href="/jobs">View all jobs &rarr;</a>
+<div style="text-align:center;margin-top:1.25rem">
+  <a href="/jobs?min_score=30&amp;sort=score" role="button">Browse all filtered jobs →</a>
 </div>
 {% endif %}
 {% endblock %}

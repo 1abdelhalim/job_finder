@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}AI Apply{% endblock %}</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
     <style>
         :root {
             --pico-font-size: 15px;
@@ -61,18 +62,21 @@
         .chip button:hover { opacity: 1; }
     </style>
 </head>
-<body>
-    <nav>
+<body class="platform-body">
+    <nav class="jf-nav">
         <ul>
-            <li><span class="brand">AI Apply</span></li>
+            <li>
+                <a href="/" class="brand" style="text-decoration:none">AI Apply</a>
+                <span class="tagline">Job discovery &amp; matching</span>
+            </li>
         </ul>
         <ul>
-            <li><a href="/">Dashboard</a></li>
-            <li><a href="/jobs">All Jobs</a></li>
-            <li><a href="/jobs?board=&min_score=0.4">Top Matches</a></li>
-            <li><a href="/applications">Applications</a></li>
-            <li><a href="/pipeline">Pipeline</a></li>
-            <li><a href="/settings">Settings</a></li>
+            <li><a href="/" {% if request.path == '/' %}aria-current="page"{% endif %}>Dashboard</a></li>
+            <li><a href="/jobs" {% if request.path == '/jobs' %}aria-current="page"{% endif %}>All Jobs</a></li>
+            <li><a href="/jobs?min_score=40&amp;sort=score">Top matches</a></li>
+            <li><a href="/applications" {% if request.path == '/applications' %}aria-current="page"{% endif %}>Applications</a></li>
+            <li><a href="/pipeline" {% if request.path == '/pipeline' %}aria-current="page"{% endif %}>Pipeline</a></li>
+            <li><a href="/settings" {% if request.path == '/settings' %}aria-current="page"{% endif %}>Settings</a></li>
         </ul>
     </nav>
     <main class="container">
@@ -82,8 +86,8 @@
         async function scrapeJobs(boards, keywords, loc) {
             const statusEl = document.getElementById('scrape-status');
             if (statusEl) {
-                statusEl.style.display = 'block';
-                statusEl.textContent = 'Scraping in progress... This may take a minute.';
+                statusEl.className = 'status-toast show';
+                statusEl.textContent = 'Scraping in progress… This may take a few minutes.';
             }
             const body = {};
             if (boards) body.boards = boards;
@@ -105,10 +109,16 @@
                     body: JSON.stringify(body),
                 });
                 const data = await resp.json();
-                if (statusEl) statusEl.textContent = 'Scraping started! Refresh in a minute to see results.';
-                setTimeout(() => window.location.reload(), 30000);
+                if (statusEl) {
+                    statusEl.className = 'status-toast show';
+                    statusEl.textContent = (data && data.message) ? data.message : 'Scrape started in background. Reload in ~1–2 minutes.';
+                }
+                setTimeout(() => window.location.reload(), 45000);
             } catch (e) {
-                if (statusEl) statusEl.textContent = 'Error: ' + e.message;
+                if (statusEl) {
+                    statusEl.className = 'status-toast show error';
+                    statusEl.textContent = 'Error: ' + e.message;
+                }
             }
         }
 
@@ -155,8 +165,10 @@
             return 'score-low';
         }
 
-        async function generateApplication(url) {
-            const btn = event.target;
+        async function generateApplication(url, btn) {
+            if (!btn && typeof event !== 'undefined') btn = event.target;
+            if (!btn) return;
+            const label = btn.textContent;
             btn.disabled = true;
             btn.textContent = 'Generating...';
             try {
@@ -176,7 +188,7 @@
                 alert('Error: ' + e.message);
             } finally {
                 btn.disabled = false;
-                btn.textContent = 'Generate Application';
+                btn.textContent = label || 'Generate';
             }
         }
 
@@ -202,8 +214,8 @@
         }
 
         async function runPipeline(dryRun) {
-            const btn = event.target;
-            btn.disabled = true;
+            const btn = (typeof event !== 'undefined' && event.target) ? event.target : null;
+            if (btn) btn.disabled = true;
             btn.textContent = dryRun ? 'Previewing...' : 'Running...';
             try {
                 const resp = await fetch('/api/run-pipeline', {
@@ -215,7 +227,12 @@
                 alert(data.message || 'Pipeline started');
                 if (!dryRun) setTimeout(() => window.location.reload(), 5000);
             } catch(e) { alert('Error: ' + e.message); }
-            finally { btn.disabled = false; btn.textContent = dryRun ? 'Dry Run' : 'Run Pipeline'; }
+            finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.textContent = dryRun ? 'Dry Run' : 'Run Pipeline';
+                }
+            }
         }
     </script>
     {% block scripts %}{% endblock %}
