@@ -25,6 +25,7 @@ from storage import (
     save_jobs, get_db, get_top_jobs,
     create_application, update_application, get_application_by_job,
     start_pipeline_run, finish_pipeline_run,
+    start_ingestion_run, finish_ingestion_run,
     get_new_jobs_since, get_last_email_sent,
 )
 from cv_customizer import customize_cv_for_job, LIFE_STORY_PATH
@@ -50,6 +51,15 @@ def _signal_handler(signum, frame):
 def load_profile() -> dict:
     with open(CONFIG_PATH) as f:
         return yaml.safe_load(f)
+
+
+def _resolve_ingestion_source(explicit: Optional[str]) -> str:
+    """How the pipeline was triggered (stored on ingestion_runs)."""
+    if explicit:
+        return explicit
+    if os.environ.get("GITHUB_ACTIONS", "").lower() == "true":
+        return "github_actions"
+    return "local"
 
 
 def _scrape_all(profile: dict, max_per_query: int = 50) -> List[Job]:
@@ -128,6 +138,7 @@ def run_pipeline(
     model: str = "qwen3.5:9b",
     skip_applications: bool = False,
     force_digest: bool = False,
+    ingestion_source: Optional[str] = None,
 ) -> Dict:
     """Run one full pipeline cycle.
 
@@ -162,6 +173,10 @@ def run_pipeline(
     )
 
     run_id = start_pipeline_run()
+    src = _resolve_ingestion_source(ingestion_source)
+    ig_id = start_ingestion_run(src, kind="pipeline")
+    n_saved = 0
+    ranked_total = 0
     stats = {
         "jobs_scraped": 0,
         "jobs_matched": 0,
@@ -178,6 +193,7 @@ def run_pipeline(
             matcher = JobMatcher(profile)
             ranked = matcher.rank(jobs)
             n_saved = save_jobs(ranked)
+            ranked_total = len(ranked)
             stats["jobs_scraped"] = len(ranked)
             log_lines.append(f"Scraped {len(ranked)} jobs, {n_saved} new")
             logger.info("Scraped %d jobs, %d new saved", len(ranked), n_saved)
@@ -336,11 +352,24 @@ def run_pipeline(
             log="\n".join(log_lines),
             **stats,
         )
+        finish_ingestion_run(
+            ig_id,
+            status="completed",
+            jobs_new=n_saved,
+            jobs_seen=ranked_total,
+        )
         logger.info("Pipeline complete: %s", stats)
 
     except Exception as e:
         logger.error("Pipeline failed: %s", e)
         finish_pipeline_run(run_id, status="failed", log=str(e), **stats)
+        finish_ingestion_run(
+            ig_id,
+            status="failed",
+            jobs_new=n_saved,
+            jobs_seen=ranked_total,
+            error=str(e),
+        )
 
     return stats
 

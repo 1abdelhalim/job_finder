@@ -35,7 +35,15 @@ load_dotenv(Path(__file__).parent / ".env")
 from models import Job, JobBoard, SearchQuery
 from scrapers import SCRAPERS
 from matcher import JobMatcher
-from storage import save_jobs, update_scores, get_top_jobs, get_db, zero_scores_for_jobs_not_in
+from storage import (
+    save_jobs,
+    update_scores,
+    get_top_jobs,
+    get_db,
+    zero_scores_for_jobs_not_in,
+    start_ingestion_run,
+    finish_ingestion_run,
+)
 
 CONFIG_PATH = Path(__file__).parent / "profile.yaml"
 
@@ -203,9 +211,20 @@ def cmd_scrape(args):
 
     unique_jobs = _filter_old_jobs(unique_jobs, max_age_days=180)
 
-    ranked = matcher.rank(unique_jobs)
-    n_saved = save_jobs(ranked)
-    logger.info(f"\nTotal: {len(ranked)} unique jobs scraped, {n_saved} new saved to DB")
+    ig_id = start_ingestion_run("cli", kind="scrape")
+    try:
+        ranked = matcher.rank(unique_jobs)
+        n_saved = save_jobs(ranked)
+        logger.info(f"\nTotal: {len(ranked)} unique jobs scraped, {n_saved} new saved to DB")
+        finish_ingestion_run(
+            ig_id,
+            status="completed",
+            jobs_new=n_saved,
+            jobs_seen=len(ranked),
+        )
+    except Exception as e:
+        finish_ingestion_run(ig_id, status="failed", error=str(e))
+        raise
     _print_jobs(ranked[:15])
 
 
@@ -306,6 +325,7 @@ def cmd_pipeline(args):
         threshold=args.threshold,
         skip_applications=getattr(args, "skip_applications", False),
         force_digest=getattr(args, "force_digest", False),
+        ingestion_source="cli",
     )
     print(f"\nPipeline complete: {stats}")
 

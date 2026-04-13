@@ -59,6 +59,19 @@ def get_db(db_path: Path = DB_PATH) -> sqlite3.Connection:
         )
     """)
     conn.execute("""
+        CREATE TABLE IF NOT EXISTS ingestion_runs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            started_at TEXT NOT NULL,
+            finished_at TEXT,
+            source TEXT NOT NULL,
+            kind TEXT NOT NULL DEFAULT 'scrape',
+            status TEXT NOT NULL DEFAULT 'running',
+            jobs_new INTEGER DEFAULT 0,
+            jobs_seen INTEGER DEFAULT 0,
+            error TEXT DEFAULT ''
+        )
+    """)
+    conn.execute("""
         CREATE TABLE IF NOT EXISTS email_log (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             sent_at TEXT,
@@ -190,6 +203,74 @@ def get_pipeline_runs(limit: int = 20, db_path: Path = DB_PATH) -> List[Dict]:
     conn = get_db(db_path)
     rows = conn.execute(
         "SELECT * FROM pipeline_runs ORDER BY started_at DESC LIMIT ?", (limit,)
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+# --- Ingestion run log (UI / GitHub Actions / CLI / pipeline) ---
+
+
+def start_ingestion_run(
+    source: str,
+    kind: str = "scrape",
+    db_path: Path = DB_PATH,
+) -> int:
+    """Start an ingestion run. Call :func:`finish_ingestion_run` when done."""
+    conn = get_db(db_path)
+    now = datetime.now().isoformat()
+    cursor = conn.execute(
+        """INSERT INTO ingestion_runs (started_at, source, kind, status)
+           VALUES (?, ?, ?, 'running')""",
+        (now, source, kind),
+    )
+    run_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    return run_id
+
+
+def finish_ingestion_run(
+    run_id: int,
+    status: str = "completed",
+    jobs_new: int = 0,
+    jobs_seen: int = 0,
+    error: str = "",
+    db_path: Path = DB_PATH,
+):
+    """Complete an ingestion run (success or failure)."""
+    conn = get_db(db_path)
+    now = datetime.now().isoformat()
+    conn.execute(
+        """UPDATE ingestion_runs
+           SET finished_at=?, status=?, jobs_new=?, jobs_seen=?, error=?
+           WHERE id=?""",
+        (now, status, jobs_new, jobs_seen, error or "", run_id),
+    )
+    conn.commit()
+    conn.close()
+
+
+def get_last_successful_ingestion(db_path: Path = DB_PATH) -> Optional[Dict]:
+    """Latest completed ingestion (for dashboard 'last ingest' time)."""
+    conn = get_db(db_path)
+    row = conn.execute(
+        """SELECT * FROM ingestion_runs
+           WHERE status = 'completed' AND finished_at IS NOT NULL
+           ORDER BY finished_at DESC LIMIT 1"""
+    ).fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+
+def get_recent_ingestion_runs(limit: int = 25, db_path: Path = DB_PATH) -> List[Dict]:
+    """Recent ingestion attempts (any status), newest first."""
+    conn = get_db(db_path)
+    rows = conn.execute(
+        """SELECT * FROM ingestion_runs
+           WHERE finished_at IS NOT NULL
+           ORDER BY finished_at DESC LIMIT ?""",
+        (limit,),
     ).fetchall()
     conn.close()
     return [dict(r) for r in rows]

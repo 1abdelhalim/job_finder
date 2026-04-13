@@ -75,6 +75,45 @@
     </div>
 </details>
 
+<details open style="margin-top:1.5rem">
+    <summary><strong>Recent ingestion runs</strong></summary>
+    <p style="font-size:0.85rem;color:var(--jf-muted);margin:0.5rem 0 0.75rem">Logged when you scrape from the UI, run <code>python main.py scrape</code> / <code>pipeline</code>, or when GitHub Actions runs the daily workflow. This timestamp is what the dashboard uses for &quot;Last ingest&quot; (not only <code>MAX(scraped_at)</code> on job rows).</p>
+    {% if ingestion_runs %}
+    <div style="overflow-x:auto">
+    <table style="width:100%;font-size:0.85rem;border-collapse:collapse">
+        <thead>
+            <tr style="text-align:left;border-bottom:1px solid var(--jf-border, #e2e8f0)">
+                <th style="padding:0.35rem 0.5rem">Finished</th>
+                <th style="padding:0.35rem 0.5rem">Source</th>
+                <th style="padding:0.35rem 0.5rem">Kind</th>
+                <th style="padding:0.35rem 0.5rem">Status</th>
+                <th style="padding:0.35rem 0.5rem">New rows</th>
+                <th style="padding:0.35rem 0.5rem">Seen</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for row in ingestion_runs %}
+            <tr style="border-bottom:1px solid #f1f5f9">
+                <td style="padding:0.35rem 0.5rem;white-space:nowrap">{{ row.finished_at[:19].replace('T',' · ') if row.finished_at else '—' }}</td>
+                <td style="padding:0.35rem 0.5rem">{{ row.source_label }}</td>
+                <td style="padding:0.35rem 0.5rem">{{ row.kind }}</td>
+                <td style="padding:0.35rem 0.5rem">
+                  {% if row.status == 'completed' %}<span style="color:#16a34a">completed</span>
+                  {% elif row.status == 'failed' %}<span style="color:#dc2626">failed</span>
+                  {% else %}{{ row.status }}{% endif %}
+                </td>
+                <td style="padding:0.35rem 0.5rem">{{ row.jobs_new }}</td>
+                <td style="padding:0.35rem 0.5rem">{{ row.jobs_seen }}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    </div>
+    {% else %}
+    <p style="color:var(--jf-muted);font-size:0.9rem">No runs recorded yet.</p>
+    {% endif %}
+</details>
+
 {% endblock %}
 
 {% block scripts %}

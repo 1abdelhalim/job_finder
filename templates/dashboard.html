@@ -9,8 +9,13 @@
 <div class="dash-meta">
   <span>
     <strong>Last ingest:</strong>
-    {% if last_scraped_display %}{{ last_scraped_display }}{% else %}— no jobs in DB yet{% endif %}
+    {% if last_scraped_display %}
+      {{ last_scraped_display }}{% if last_ingest_source_label %} · {{ last_ingest_source_label }}{% endif %}
+    {% else %}— no jobs in DB yet{% endif %}
   </span>
+  {% if last_scraped_display and not last_ingest_source %}
+  <span style="font-size:0.82rem;color:var(--jf-muted)" title="Run any scrape or pipeline once to record timestamps in the ingestion log (survives duplicate-only runs).">(from job rows; ingestion log will appear after next run)</span>
+  {% endif %}
   <span>
     <strong>Profile:</strong> {{ search_queries|length }} search term{{ 's' if search_queries|length != 1 else '' }} · {{ enabled_boards|length }} board{{ 's' if enabled_boards|length != 1 else '' }}
   </span>

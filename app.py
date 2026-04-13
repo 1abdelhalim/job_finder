@@ -23,6 +23,8 @@ from storage import (
     mark_applied, mark_hidden, DB_PATH,
     get_applications, get_application_by_job,
     get_pipeline_runs,
+    start_ingestion_run, finish_ingestion_run,
+    get_last_successful_ingestion, get_recent_ingestion_runs,
     create_application, update_application, delete_application,
 )
 
@@ -49,6 +51,20 @@ def _short_ts(iso_val) -> Optional[str]:
     if len(s) >= 16:
         return s[:16].replace("T", " · ")
     return s
+
+
+INGESTION_SOURCE_LABELS = {
+    "ui": "Web UI",
+    "github_actions": "GitHub Actions",
+    "cli": "CLI",
+    "local": "Local pipeline",
+}
+
+
+def _ingestion_label(source: Optional[str]) -> str:
+    if not source:
+        return ""
+    return INGESTION_SOURCE_LABELS.get(source, source.replace("_", " ").title())
 
 logger = logging.getLogger(__name__)
 CONFIG_PATH = Path(__file__).parent / "profile.yaml"
@@ -90,7 +106,7 @@ def create_app():
             "SELECT COUNT(*) FROM jobs WHERE hidden = 0 AND applied = 0 AND match_score >= ?",
             (rp,),
         ).fetchone()[0]
-        last_scraped_raw = conn.execute("SELECT MAX(scraped_at) FROM jobs").fetchone()[0]
+        jobs_max_scraped = conn.execute("SELECT MAX(scraped_at) FROM jobs").fetchone()[0]
 
         # Board distribution
         boards = conn.execute(
@@ -103,6 +119,14 @@ def create_app():
         ).fetchall()
 
         conn.close()
+
+        last_ing = get_last_successful_ingestion()
+        if last_ing and last_ing.get("finished_at"):
+            last_scraped_raw = last_ing["finished_at"]
+            last_ingest_source = last_ing.get("source")
+        else:
+            last_scraped_raw = jobs_max_scraped
+            last_ingest_source = None
 
         jobs = []
         for r in top:
@@ -122,6 +146,8 @@ def create_app():
             high_match=high_match,
             to_review=to_review,
             last_scraped_display=_short_ts(last_scraped_raw),
+            last_ingest_source=last_ingest_source,
+            last_ingest_source_label=_ingestion_label(last_ingest_source),
             boards=[dict(b) for b in boards],
             jobs=jobs,
             enabled_boards=enabled_boards,
@@ -277,6 +303,16 @@ def create_app():
         excluded_boards = set(data.get("excluded_boards", []))
 
         def run_scrape():
+            ig_id = start_ingestion_run("ui", kind="scrape")
+            try:
+                _run_scrape_inner(ig_id)
+            except Exception as e:
+                logger.error("Background scrape failed: %s", e)
+                finish_ingestion_run(
+                    ig_id, status="failed", error=str(e), jobs_new=0, jobs_seen=0
+                )
+
+        def _run_scrape_inner(ig_id: int):
             profile = load_profile()
             matcher = JobMatcher(profile)
             all_jobs = []
@@ -342,7 +378,13 @@ def create_app():
                           if not any(c in j.location.lower() for c in excluded_countries_lc)]
 
             ranked = matcher.rank(unique)
-            save_jobs(ranked)
+            inserted = save_jobs(ranked)
+            finish_ingestion_run(
+                ig_id,
+                status="completed",
+                jobs_new=inserted,
+                jobs_seen=len(ranked),
+            )
 
         thread = threading.Thread(target=run_scrape)
         thread.start()
@@ -444,12 +486,18 @@ def create_app():
         # Email enabled flag stored in a simple file
         email_flag = Path(__file__).parent / ".email_enabled"
         email_enabled = email_flag.exists()
+        ingestion_rows = []
+        for r in get_recent_ingestion_runs(40):
+            d = dict(r)
+            d["source_label"] = _ingestion_label(d.get("source"))
+            ingestion_rows.append(d)
         return render_template(
             "pipeline.html",
             total_runs=total_runs,
             total_applications=total_applications,
             total_emails=total_emails,
             email_enabled=email_enabled,
+            ingestion_runs=ingestion_rows,
         )
 
     @app.route("/download")
@@ -789,7 +837,7 @@ def create_app():
             try:
                 from pipeline import run_pipeline
                 profile = load_profile()
-                run_pipeline(profile=profile, dry_run=dry_run)
+                run_pipeline(profile=profile, dry_run=dry_run, ingestion_source="ui")
             except Exception as e:
                 logger.error("Pipeline failed: %s", e)
 
