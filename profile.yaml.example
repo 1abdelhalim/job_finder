@@ -105,6 +105,14 @@ remote_preferred: true
 # career_track: "data_engineering"
 # career_track_exclusive: true
 
+# --- Title exclusions (optional) ---
+# If the job title contains any of these substrings, it is dropped after the DE/ML relevance
+# step (helps remove Data Scientist / ML engineer / full-stack noise when descriptions mention SQL).
+# title_patterns_excluded:
+#   - "machine learning engineer"
+#   - "data scientist"
+#   - "full stack"
+
 # --- Location policy (optional hard filter) ---
 # When disabled (default), all scored jobs can be stored. When enabled, only jobs that
 # match at least one true branch are kept (remote worldwide OR Egypt OR visa sponsorship).

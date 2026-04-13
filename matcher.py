@@ -132,6 +132,19 @@ def _text_matches_any(text: str, patterns: list[str]) -> bool:
     return any(p in text for p in patterns)
 
 
+def job_title_excluded(job: Job, profile: dict) -> bool:
+    """Return True if job.title matches any substring in profile title_patterns_excluded."""
+    patterns = profile.get("title_patterns_excluded") or []
+    if not patterns:
+        return False
+    t = job.title.lower()
+    for p in patterns:
+        pl = (p or "").strip().lower()
+        if pl and pl in t:
+            return True
+    return False
+
+
 def job_matches_location_policy(job: Job, profile: dict) -> bool:
     """When location_policy.enabled is true, keep jobs matching at least one allowed branch."""
     policy = profile.get("location_policy")
@@ -451,6 +464,12 @@ class JobMatcher:
         filtered_count = len(jobs) - len(relevant)
         if filtered_count > 0:
             logger.info("Filtered out %d jobs (not matching AI/ML or career_track)", filtered_count)
+
+        before_title = len(relevant)
+        relevant = [j for j in relevant if not job_title_excluded(j, self.profile)]
+        excluded_title = before_title - len(relevant)
+        if excluded_title > 0:
+            logger.info("Title pattern exclusions removed %d jobs", excluded_title)
 
         ai_jobs = relevant
 
