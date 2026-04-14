@@ -10,7 +10,7 @@ import os
 from datetime import datetime, timedelta
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from typing import List, Dict, Optional
+from typing import Dict, List, Optional, Tuple
 
 from storage import get_last_email_sent, get_new_jobs_since, log_email_sent
 
@@ -119,6 +119,89 @@ def _build_digest_html(jobs: List[Dict], min_score: float) -> str:
     return html
 
 
+def _resolve_gmail_creds(
+    recipient: str,
+    gmail_user: Optional[str],
+    gmail_app_password: Optional[str],
+) -> Tuple[str, str]:
+    user = gmail_user or os.environ.get("GMAIL_USER", recipient)
+    password = gmail_app_password or os.environ.get("GMAIL_APP_PASSWORD", "")
+    return user, password
+
+
+def _send_html_email(
+    recipient: str,
+    subject: str,
+    html_body: str,
+    gmail_user: Optional[str] = None,
+    gmail_app_password: Optional[str] = None,
+) -> bool:
+    gmail_user, gmail_app_password = _resolve_gmail_creds(
+        recipient, gmail_user, gmail_app_password
+    )
+    if not gmail_app_password:
+        logger.error(
+            "GMAIL_APP_PASSWORD not set. Generate one at "
+            "https://myaccount.google.com/apppasswords and add to .env"
+        )
+        return False
+
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = subject
+    msg["From"] = gmail_user
+    msg["To"] = recipient
+    msg.attach(MIMEText(html_body, "html"))
+
+    try:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+            server.login(gmail_user, gmail_app_password)
+            server.send_message(msg)
+        return True
+
+    except smtplib.SMTPAuthenticationError:
+        logger.error(
+            "Gmail authentication failed. Check GMAIL_USER and GMAIL_APP_PASSWORD. "
+            "You may need to generate an App Password at https://myaccount.google.com/apppasswords"
+        )
+        return False
+    except Exception as e:
+        logger.error("Failed to send email: %s", e)
+        return False
+
+
+def send_empty_digest_email(
+    recipient: str,
+    min_score: float = 0.75,
+    gmail_user: Optional[str] = None,
+    gmail_app_password: Optional[str] = None,
+) -> bool:
+    """Send a short notice that the pipeline ran but there were no qualifying new jobs."""
+    pct = int(round(min_score * 100))
+    subject = f"Job Finder: 0 new roles (≥{pct}% match)"
+    html_body = f"""
+    <html><body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      max-width: 700px; margin: 0 auto; color: #333;">
+    <h1 style="color: #1a1a2e; border-bottom: 3px solid #88AC0B; padding-bottom: 10px;">
+        Job Finder — no new high-match listings
+    </h1>
+    <p style="color: #666; font-size: 14px;">
+        The scheduled run completed successfully. There were no new positions scraped since your last digest
+        with match score ≥ {pct}%.
+    </p>
+    <p style="color: #999; font-size: 12px;">
+        Sent by Job Finder Automation Pipeline
+    </p>
+    </body></html>
+    """
+    if not _send_html_email(
+        recipient, subject, html_body, gmail_user, gmail_app_password
+    ):
+        return False
+    log_email_sent(subject, 0, recipient)
+    logger.info("Empty digest notice sent to %s", recipient)
+    return True
+
+
 def should_send_digest(interval_days: int = 2) -> bool:
     """Check if enough time has passed since the last digest email."""
     last = get_last_email_sent()
@@ -147,41 +230,15 @@ def send_digest_email(
         logger.info("No new jobs to send in digest")
         return False
 
-    gmail_user = gmail_user or os.environ.get("GMAIL_USER", recipient)
-    gmail_app_password = gmail_app_password or os.environ.get("GMAIL_APP_PASSWORD", "")
-
-    if not gmail_app_password:
-        logger.error(
-            "GMAIL_APP_PASSWORD not set. Generate one at "
-            "https://myaccount.google.com/apppasswords and add to .env"
-        )
-        return False
-
     pct = int(round(min_score * 100))
     subject = f"Job Finder: {len(jobs)} roles (≥{pct}% match)"
     html_body = _build_digest_html(jobs, min_score=min_score)
 
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = subject
-    msg["From"] = gmail_user
-    msg["To"] = recipient
-    msg.attach(MIMEText(html_body, "html"))
-
-    try:
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
-            server.login(gmail_user, gmail_app_password)
-            server.send_message(msg)
-
-        log_email_sent(subject, len(jobs), recipient)
-        logger.info("Digest email sent to %s with %d jobs", recipient, len(jobs))
-        return True
-
-    except smtplib.SMTPAuthenticationError:
-        logger.error(
-            "Gmail authentication failed. Check GMAIL_USER and GMAIL_APP_PASSWORD. "
-            "You may need to generate an App Password at https://myaccount.google.com/apppasswords"
-        )
+    if not _send_html_email(
+        recipient, subject, html_body, gmail_user, gmail_app_password
+    ):
         return False
-    except Exception as e:
-        logger.error("Failed to send email: %s", e)
-        return False
+
+    log_email_sent(subject, len(jobs), recipient)
+    logger.info("Digest email sent to %s with %d jobs", recipient, len(jobs))
+    return True

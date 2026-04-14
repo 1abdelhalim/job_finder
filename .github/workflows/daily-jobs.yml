@@ -1,10 +1,16 @@
 # Daily scrape → match → digest email (no Ollama). Requires repository secrets — see comments below.
+# Secrets: PROFILE_YAML (full profile.yaml), GMAIL_USER, GMAIL_APP_PASSWORD; optional LIFE_STORY_MD.
+# If there are no new jobs above digest_min_score, you still get a short "no new high-match listings" email
+# when DIGEST_NOTIFY_ON_EMPTY=1 (so a silent run is not mistaken for a broken workflow).
 name: Daily job digest
 
 on:
   schedule:
     - cron: "0 9 * * *" # 09:00 UTC every day
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 concurrency:
   group: daily-jobs-${{ github.ref }}
@@ -18,6 +24,7 @@ jobs:
       GMAIL_USER: ${{ secrets.GMAIL_USER }}
       GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
       FORCE_DIGEST: "1"
+      DIGEST_NOTIFY_ON_EMPTY: "1"
     steps:
       - uses: actions/checkout@v4
 
@@ -66,3 +73,39 @@ jobs:
 
       - name: Run pipeline
         run: python main.py pipeline --skip-applications --force-digest
+
+      - name: Job summary
+        if: success()
+        run: |
+          python3 << 'PY' >> "$GITHUB_STEP_SUMMARY"
+          import os
+          import sqlite3
+          print("## Daily job digest")
+          print("")
+          if not os.path.isfile("jobs.db"):
+              print("_No jobs.db in workspace (pipeline may have failed early)._")
+          else:
+              conn = sqlite3.connect("jobs.db")
+              row = conn.execute(
+                  """SELECT jobs_scraped, emails_sent, status,
+                            substr(log, 1, 2000) AS log_snip
+                     FROM pipeline_runs ORDER BY id DESC LIMIT 1"""
+              ).fetchone()
+              conn.close()
+              if not row:
+                  print("_No pipeline_runs row (unexpected)._")
+              else:
+                  js, em, st, snip = row
+                  print("| Field | Value |")
+                  print("| --- | --- |")
+                  print(f"| jobs_scraped | {js} |")
+                  print(f"| emails_sent | {em} |")
+                  print(f"| status | {st} |")
+                  print("")
+                  print("<details><summary>Log excerpt</summary>")
+                  print("")
+                  print("```")
+                  print((snip or "").replace("```", "``\\`"))
+                  print("```")
+                  print("</details>")
+          PY

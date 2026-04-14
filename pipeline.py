@@ -31,7 +31,7 @@ from storage import (
 from cv_customizer import customize_cv_for_job, LIFE_STORY_PATH
 from cover_letter import create_cover_letter
 from form_answers import generate_form_answers
-from notifier import send_digest_email, should_send_digest
+from notifier import send_digest_email, send_empty_digest_email, should_send_digest
 
 logger = logging.getLogger(__name__)
 
@@ -337,6 +337,17 @@ def run_pipeline(
                     "No jobs for digest (none new since last email with match ≥ %.2f)",
                     digest_min_score,
                 )
+                notify_empty = os.environ.get(
+                    "DIGEST_NOTIFY_ON_EMPTY", ""
+                ).strip().lower() in ("1", "true", "yes")
+                if notify_empty and force_digest:
+                    if send_empty_digest_email(
+                        recipient, min_score=digest_min_score
+                    ):
+                        stats["emails_sent"] = 1
+                        log_lines.append(
+                            "Empty digest email sent (no new jobs above digest threshold)"
+                        )
         else:
             if dry_run:
                 logger.info("Digest skipped (dry run)")
