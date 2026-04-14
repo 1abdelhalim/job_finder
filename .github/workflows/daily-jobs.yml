@@ -6,7 +6,9 @@ name: Daily job digest
 
 on:
   schedule:
-    - cron: "0 9 * * *" # 09:00 UTC every day
+    # Every calendar day at 09:00 UTC (GitHub Actions cron is UTC; 5 fields: min hour dom mon dow).
+    # Scheduled workflows run from the default branch only. Use workflow_dispatch to run manually anytime.
+    - cron: "0 9 * * *"
   workflow_dispatch:
 
 permissions:
