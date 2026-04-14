@@ -186,6 +186,6 @@ pipeline:
   auto_apply_threshold: 0.45
   max_applications_per_run: 10
   email_recipient: "mohammadabdelhalim5@gmail.com"
-  email_digest_interval_days: 2
+  email_digest_interval_days: 1
   cv_dir: "~/CV"
   ollama_model: "qwen3.5:9b"
